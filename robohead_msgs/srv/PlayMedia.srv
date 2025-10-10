@@ -1,0 +1,6 @@
+string path_to_media_file
+string path_to_override_audio_file
+bool is_block
+bool is_cycle
+---
+int16 data

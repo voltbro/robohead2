@@ -3,21 +3,19 @@
 <package format="3">
   <name>respeaker_driver</name>
   <version>2.0.0</version>
-  <description>ROS respeaker usb mic array</description>
+  <description>ROS respeaker usb mic array package</description>
   <maintainer email="kolesnikovpi2005@mail.ru">kolezo_pi</maintainer>
   <license>TODO: License declaration</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>rclcpp</depend>
-  <depend>std_msgs</depend>
-  <depend>robohead_msgs</depend>
-  <depend>mpd</depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>robohead_msgs</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>

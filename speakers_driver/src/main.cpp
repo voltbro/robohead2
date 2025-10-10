@@ -29,7 +29,7 @@ void set_volume_callback(const std::shared_ptr<robohead_msgs::srv::SimpleCommand
   }
 }
 
-void get_volume_callback(const std::shared_ptr<robohead_msgs::srv::SimpleCommand::Request> request,
+void get_volume_callback([[maybe_unused]] const std::shared_ptr<robohead_msgs::srv::SimpleCommand::Request> request,
                           std::shared_ptr<robohead_msgs::srv::SimpleCommand::Response>       response)
 {
   struct mpd_connection *conn = mpd_connection_new(NULL, 0, 5000);

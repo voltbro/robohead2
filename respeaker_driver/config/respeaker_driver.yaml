@@ -1,8 +1,26 @@
 /respeaker_driver:
   ros__parameters:
 
-    srv_set_volume_name: "~/set_volume"
-    srv_get_volume_name: "~/get_volume"
-    srv_play_audio_name: "~/play_audio"
+    usb:
+      vendor_id: 0x2886 # vendor_id производителя usb-устройства
+      product_id: 0x0018 # product_id usb-устройства
+      reset_timeout: 10 # время ожидания для переинициализации usb устройства после reset 
+      io_timeout: 8000 # таймаут при передаче данных с/на ReSpeaker 
 
-    default_volume: 40
+    audio:
+      rate: 16000 # частота дискретизации сигнала с микрофона
+      chunk: 1024 # количество frame в буффере, то же самое что: period, framebuffer и т.д.
+      # используется формат pyaudio.paInt16
+  
+    ros:
+      topic_audio_main_name: "~/audio/main123"
+      topic_audio_channel_0_name: "~/audio/channel_0a"
+      topic_audio_channel_1_name: "~/audio/channel_1b"
+      topic_audio_channel_2_name: "~/audio/channel_2c"
+      topic_audio_channel_3_name: "~/audio/channel_3d"
+      topic_audio_channel_4_name: "~/audio/channel_4e"
+      topic_audio_channel_5_name: "~/audio/channel_5f"
+      topic_doa_name: "~/doa"
+
+      main_channel: 0 # Выбранный канал 0..5 будет дублироваться в топик основного аудио topic_audio_main_name
+

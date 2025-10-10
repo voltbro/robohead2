@@ -1,5 +1,0 @@
-string path_to_file
-bool is_block
-bool is_cycle
----
-int16 data
