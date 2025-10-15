@@ -11,13 +11,13 @@ import time
 from std_msgs.msg import Bool, Int16, ColorRGBA
 from robohead_msgs.msg import AudioData
 
-# from respeaker_driver_dependencies.pixel_ring import PixelRing
-# from respeaker_driver_dependencies.utils import *
-# from respeaker_driver.msg import SetColorManualLED
-# from respeaker_driver.srv import SetBrightnessLED, SetBrightnessLEDRequest, SetBrightnessLEDResponse
-# from respeaker_driver.srv import SetColorAllLED, SetColorAllLEDRequest, SetColorAllLEDResponse
-# from respeaker_driver.srv import SetColorPaletteLED, SetColorPaletteLEDRequest, SetColorPaletteLEDResponse
-# from respeaker_driver.srv import SetModeLED, SetModeLEDRequest, SetModeLEDResponse
+from respeaker_driver_dependencies.pixel_ring import PixelRing
+from respeaker_driver_dependencies.utils import *
+from respeaker_driver.msg import SetColorManualLED
+from respeaker_driver.srv import SetBrightnessLED, SetBrightnessLEDRequest, SetBrightnessLEDResponse
+from respeaker_driver.srv import SetColorAllLED, SetColorAllLEDRequest, SetColorAllLEDResponse
+from respeaker_driver.srv import SetColorPaletteLED, SetColorPaletteLEDRequest, SetColorPaletteLEDResponse
+from respeaker_driver.srv import SetModeLED, SetModeLEDRequest, SetModeLEDResponse
 
 from contextlib import contextmanager
 import os
@@ -87,45 +87,45 @@ class RespeakerDriver(Node):
         self.declare_parameter('ros/main_channel', 0)
         self._main_channel = self.get_parameter('ros/main_channel').get_parameter_value().integer_value
 
-        # self.declare_parameter('ros/topic_doa_name', "~/doa")
-        # self.topic_doa_name = self.get_parameter('ros/topic_doa_name').get_parameter_value()
+        self.declare_parameter('ros/topic_doa_name', "~/doa")
+        self.topic_doa_name = self.get_parameter('ros/topic_doa_name').get_parameter_value()
 
 
 
-        # default_brightness = rospy.get_param("~led/brightness", 10)
-        # A_color = rospy.get_param("~led/A_color", [0,0,255])
-        # B_color = rospy.get_param("~led/B_color", [0,255,0])
+        default_brightness = rospy.get_param("~led/brightness", 10)
+        A_color = rospy.get_param("~led/A_color", [0,0,255])
+        B_color = rospy.get_param("~led/B_color", [0,255,0])
 
-        # srv_SetBrightnessLED_name = rospy.get_param("~ros/srv_SetBrightnessLED_name", "~SetBrightnessLED")
-        # srv_SetColorAllLED_name = rospy.get_param("~ros/srv_SetColorAllLED_name", "~SetColorAllLED")
-        # srv_SetColorPaletteLED_name = rospy.get_param("~ros/srv_SetColorPaletteLED_name", "~SetColorPaletteLED")
-        # srv_SetModeLED_name = rospy.get_param("~ros/srv_SetModeLED_name", "~SetModeLED")
-        # topic_SetColorManualLED_name = rospy.get_param("~ros/topic_SetColorManualLED_name", "~SetColorManualLED")
-        # mode = rospy.get_param("~led/mode", 1)
+        srv_SetBrightnessLED_name = rospy.get_param("~ros/srv_SetBrightnessLED_name", "~SetBrightnessLED")
+        srv_SetColorAllLED_name = rospy.get_param("~ros/srv_SetColorAllLED_name", "~SetColorAllLED")
+        srv_SetColorPaletteLED_name = rospy.get_param("~ros/srv_SetColorPaletteLED_name", "~SetColorPaletteLED")
+        srv_SetModeLED_name = rospy.get_param("~ros/srv_SetModeLED_name", "~SetModeLED")
+        topic_SetColorManualLED_name = rospy.get_param("~ros/topic_SetColorManualLED_name", "~SetColorManualLED")
+        mode = rospy.get_param("~led/mode", 1)
 
 
 
-        # self._doa_yaw_offset = rospy.get_param("~doa_yaw_offset", 0)
+        self._doa_yaw_offset = rospy.get_param("~doa_yaw_offset", 0)
 
-        # # INIT dev to get DOA, set params, control PixelRing
-        # self.dev = usb.core.find(idVendor=vendor_id,
-        #                          idProduct=product_id)
-        # if not self.dev:
-        #     self.get_logger().error(f"Can`t find dev=respeaker by vendor_id ({vendor_id}) and product_id ({product_id})")
+        # INIT dev to get DOA, set params, control PixelRing
+        self.dev = usb.core.find(idVendor=vendor_id,
+                                 idProduct=product_id)
+        if not self.dev:
+            self.get_logger().error(f"Can`t find dev=respeaker by vendor_id ({vendor_id}) and product_id ({product_id})")
 
-        # self.pixel_ring = PixelRing(self.dev)
+        self.pixel_ring = PixelRing(self.dev)
 
-        # try:
-        #     self.pixel_ring.set_vad_led(1)
-        # except usb.USBError as err:
-        #     rospy.logerr(f"error in dev: {err}\nReset usb respeaker...")
-        #     self.dev.reset()
-        #     rospy.sleep(reset_time_sleep)
-        # self.pixel_ring.set_vad_led(2)
+        try:
+            self.pixel_ring.set_vad_led(1)
+        except usb.USBError as err:
+            rospy.logerr(f"error in dev: {err}\nReset usb respeaker...")
+            self.dev.reset()
+            rospy.sleep(reset_time_sleep)
+        self.pixel_ring.set_vad_led(2)
 
-        # self.pixel_ring.set_brightness(default_brightness)
-        # self.pixel_ring.set_color_palette(A_color[0],A_color[1],A_color[2],B_color[0],B_color[1],B_color[2])
-        # self.set_mode_led(mode)
+        self.pixel_ring.set_brightness(default_brightness)
+        self.pixel_ring.set_color_palette(A_color[0],A_color[1],A_color[2],B_color[0],B_color[1],B_color[2])
+        self.set_mode_led(mode)
 
         # INIT respeaker as audio input
         self.available_channels = None
@@ -180,89 +180,89 @@ class RespeakerDriver(Node):
         self.publisher_audio_main = self.create_publisher(AudioData, topic_audio_main_name, 10)
         self.publishers_audio_channel = {c: self.create_publisher(AudioData, topic_audio_channel_names[c], 10) for c in range(self.available_channels)}
 
-        # self.pub_doa = rospy.Publisher(topic_doa_angle_name, Int16, queue_size=10)
+        self.pub_doa = rospy.Publisher(topic_doa_angle_name, Int16, queue_size=10)
 
-        # rospy.Service(srv_SetBrightnessLED_name, SetBrightnessLED, self._SetBrightnessLED_callback)
-        # rospy.Service(srv_SetColorAllLED_name, SetColorAllLED, self._SetColorAllLED_callback)
-        # rospy.Service(srv_SetColorPaletteLED_name, SetColorPaletteLED, self._SetColorPaletteLED_callback)
-        # rospy.Service(srv_SetModeLED_name, SetModeLED, self._SetModeLED_callback)
-        # rospy.Subscriber(topic_SetColorManualLED_name, SetColorManualLED, callback=self._SetColorManualLED_callback)
+        rospy.Service(srv_SetBrightnessLED_name, SetBrightnessLED, self._SetBrightnessLED_callback)
+        rospy.Service(srv_SetColorAllLED_name, SetColorAllLED, self._SetColorAllLED_callback)
+        rospy.Service(srv_SetColorPaletteLED_name, SetColorPaletteLED, self._SetColorPaletteLED_callback)
+        rospy.Service(srv_SetModeLED_name, SetModeLED, self._SetModeLED_callback)
+        rospy.Subscriber(topic_SetColorManualLED_name, SetColorManualLED, callback=self._SetColorManualLED_callback)
         
         self.prev_doa = 400 # просто стартовое значение
 
         self.get_logger().info("respeaker_driver 123 123 INITED")
 
-    # def _SetColorManualLED_callback(self, msg:SetColorManualLED):
-    #     isCorrect = 1
-    #     new_data = [0]*36
-    #     for i in range(12):
-    #         r = int(msg.colors[i].r)
-    #         g = int(msg.colors[i].g)
-    #         b = int(msg.colors[i].b)
-    #         if (0<=r<=255) and (0<=g<=255) and (0<=b<=255):
+    def _SetColorManualLED_callback(self, msg:SetColorManualLED):
+        isCorrect = 1
+        new_data = [0]*36
+        for i in range(12):
+            r = int(msg.colors[i].r)
+            g = int(msg.colors[i].g)
+            b = int(msg.colors[i].b)
+            if (0<=r<=255) and (0<=g<=255) and (0<=b<=255):
                 
-    #             new_data[3*i+0] = r
-    #             new_data[3*i+1] = g
-    #             new_data[3*i+2] = b
-    #         else:
-    #             isCorrect = 0
-    #             break
-    #     if isCorrect:
-    #         self.pixel_ring.set_color_manual(data=new_data)
+                new_data[3*i+0] = r
+                new_data[3*i+1] = g
+                new_data[3*i+2] = b
+            else:
+                isCorrect = 0
+                break
+        if isCorrect:
+            self.pixel_ring.set_color_manual(data=new_data)
 
-    # def _SetBrightnessLED_callback(self, request:SetBrightnessLEDRequest):
-    #     response = SetBrightnessLEDResponse()
-    #     if 0<=request.brightness<=31:
-    #         self.pixel_ring.set_brightness(request.brightness)
-    #         response.value = 0
-    #     else:
-    #         response.value = -1
-    #     return response
+    def _SetBrightnessLED_callback(self, request:SetBrightnessLEDRequest):
+        response = SetBrightnessLEDResponse()
+        if 0<=request.brightness<=31:
+            self.pixel_ring.set_brightness(request.brightness)
+            response.value = 0
+        else:
+            response.value = -1
+        return response
 
-    # def _SetColorAllLED_callback(self, request:SetColorAllLEDRequest):
-    #     response = SetColorAllLEDResponse()
+    def _SetColorAllLED_callback(self, request:SetColorAllLEDRequest):
+        response = SetColorAllLEDResponse()
 
-    #     if (0<=request.r<=255) and (0<=request.g<=255) and (0<=request.b<=255):
-    #         self.pixel_ring.set_color_all(r=request.r,g=request.g,b=request.b)
-    #         response.value = 0
-    #     else:
-    #         response.value = -1
-    #     return response
+        if (0<=request.r<=255) and (0<=request.g<=255) and (0<=request.b<=255):
+            self.pixel_ring.set_color_all(r=request.r,g=request.g,b=request.b)
+            response.value = 0
+        else:
+            response.value = -1
+        return response
 
-    # def _SetColorPaletteLED_callback(self, request:SetColorPaletteLEDRequest):
-    #     response = SetColorPaletteLEDResponse()
+    def _SetColorPaletteLED_callback(self, request:SetColorPaletteLEDRequest):
+        response = SetColorPaletteLEDResponse()
 
-    #     if (0<=request.colorA[0]<=255) and (0<=request.colorA[1]<=255) and (0<=request.colorA[2]<=255) and (0<=request.colorB[0]<=255) and (0<=request.colorB[0]<=255) and (0<=request.colorB[0]<=255):
-    #         self.pixel_ring.set_color_palette(request.colorA[0],request.colorA[1],request.colorA[2],
-    #                                           request.colorB[0],request.colorB[1],request.colorB[2])
-    #         response.value = 0
-    #     else:
-    #         response.value = -1
-    #     return response
+        if (0<=request.colorA[0]<=255) and (0<=request.colorA[1]<=255) and (0<=request.colorA[2]<=255) and (0<=request.colorB[0]<=255) and (0<=request.colorB[0]<=255) and (0<=request.colorB[0]<=255):
+            self.pixel_ring.set_color_palette(request.colorA[0],request.colorA[1],request.colorA[2],
+                                              request.colorB[0],request.colorB[1],request.colorB[2])
+            response.value = 0
+        else:
+            response.value = -1
+        return response
 
-    # def _SetModeLED_callback(self, request:SetModeLEDRequest):
-    #     response = SetModeLEDResponse()
+    def _SetModeLED_callback(self, request:SetModeLEDRequest):
+        response = SetModeLEDResponse()
 
-    #     if 0 <= request.mode <= 5:
-    #         self.set_mode_led(request.mode)
-    #         response.value = 0
-    #     else:
-    #         response.value = -1
-    #     return response
+        if 0 <= request.mode <= 5:
+            self.set_mode_led(request.mode)
+            response.value = 0
+        else:
+            response.value = -1
+        return response
 
-    # def set_mode_led(self, mode:int):
-    #     if mode==0:
-    #         self.pixel_ring.off()
-    #     elif mode==1:
-    #         self.pixel_ring.trace()
-    #     elif mode==2:
-    #         self.pixel_ring.listen()
-    #     elif mode==3:
-    #         self.pixel_ring.wait()
-    #     elif mode==4:
-    #         self.pixel_ring.speak()
-    #     elif mode==5:
-    #         self.pixel_ring.spin()
+    def set_mode_led(self, mode:int):
+        if mode==0:
+            self.pixel_ring.off()
+        elif mode==1:
+            self.pixel_ring.trace()
+        elif mode==2:
+            self.pixel_ring.listen()
+        elif mode==3:
+            self.pixel_ring.wait()
+        elif mode==4:
+            self.pixel_ring.speak()
+        elif mode==5:
+            self.pixel_ring.spin()
 
     def __del__(self):
         try:
@@ -293,22 +293,22 @@ class RespeakerDriver(Node):
         if self.stream.is_active():
             self.stream.stop_stream()
     
-    # def get_doa_angle(self):
-    #     doa = self._read('DOAANGLE')
-    #     rad = math.radians(doa)
-    #     x = math.cos(rad)
-    #     y = math.sin(rad)
-    #     rotate = math.radians(self._doa_yaw_offset)
-    #     x_ = x*math.cos(rotate)+y*math.sin(rotate)
-    #     y_ = -x*math.sin(rotate)+y*math.cos(rotate)
-    #     doa_angle = int(math.degrees(math.atan2(y_, x_)))
-    #     return -doa_angle
+    def get_doa_angle(self):
+        doa = self._read('DOAANGLE')
+        rad = math.radians(doa)
+        x = math.cos(rad)
+        y = math.sin(rad)
+        rotate = math.radians(self._doa_yaw_offset)
+        x_ = x*math.cos(rotate)+y*math.sin(rotate)
+        y_ = -x*math.sin(rotate)+y*math.cos(rotate)
+        doa_angle = int(math.degrees(math.atan2(y_, x_)))
+        return -doa_angle
 
     def _stream_callback(self, in_data, frame_count, time_info, status):
-        # doa = self.get_doa_angle()
-        # if self.prev_doa != doa:
-        #     self.prev_doa = doa
-        #     self.pub_doa.publish(doa)
+        doa = self.get_doa_angle()
+        if self.prev_doa != doa:
+            self.prev_doa = doa
+            self.pub_doa.publish(doa)
 
         data = np.frombuffer(buffer=in_data, dtype=np.int16)
         chunk_per_channel = len(data) / self.available_channels

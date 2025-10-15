@@ -13,7 +13,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
-find_package(robohead_msgs REQUIRED)  
+find_package(robohead_interfaces REQUIRED)  
 
 
 
@@ -24,7 +24,7 @@ add_executable(main src/main.cpp)
 ament_target_dependencies(main
   rclcpp
   std_msgs
-  robohead_msgs
+  robohead_interfaces
 )
 
 # Установка

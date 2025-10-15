@@ -1,0 +1,4 @@
+ColorRGBuint8 color_a
+ColorRGBuint8 color_b
+---
+int16 data

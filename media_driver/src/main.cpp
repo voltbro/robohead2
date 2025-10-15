@@ -8,30 +8,30 @@
 #include <poll.h>
 
 // #include "mpv_display_driver/srv/play_media.hpp"
-#include "robohead_msgs/srv/simple_command.hpp"                                       
-#include "robohead_msgs/srv/play_media.hpp"   
+#include "robohead_interfaces/srv/simple_command.hpp"                                       
+#include "robohead_interfaces/srv/play_media.hpp"   
 
 
 /* example usage
-ros2 service call /media_driver/play_media robohead_msgs/srv/PlayMedia "path_to_media_file: '/home/pi/loadingVideo.mp4'
-path_to_override_audio_file: ''
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: '/home/pi/loadingVideo.mp4'
+path_to_override_audio_file: '/home/pi/file.mp3'
 is_block: 0
 is_cycle: 0" 
 */
 
 /* example usage
-ros2 service call /media_driver/play_media robohead_msgs/srv/PlayMedia "path_to_media_file: '/home/pi/video_audio.mov'
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: '/home/pi/video_audio.mov'
 path_to_override_audio_file: ''
 is_block: 0
 is_cycle: 0" 
 */
 
 /*
-ros2 service call /media_driver/set_volume robohead_msgs/srv/SimpleCommand "data: 30"
+ros2 service call /media_driver/set_volume robohead_interfaces/srv/SimpleCommand "data: 30"
 */
 
 /*
-ros2 service call /media_driver/get_volume robohead_msgs/srv/SimpleCommand "data: 0"
+ros2 service call /media_driver/get_volume robohead_interfaces/srv/SimpleCommand "data: 0"
 */
 
 class MediaDriver : public rclcpp::Node
@@ -52,19 +52,19 @@ public:
         this->get_parameter("srv_set_volume_name", srv_set_volume_name);
         this->get_parameter("srv_get_volume_name", srv_get_volume_name);
 
-        srv_play_media = this->create_service<robohead_msgs::srv::PlayMedia>(
+        srv_play_media = this->create_service<robohead_interfaces::srv::PlayMedia>(
                                                                             srv_play_media_name,
                                                                             std::bind(&MediaDriver::playMediaCallback, this,
                                                                             std::placeholders::_1, std::placeholders::_2)
                                                                             );
 
-        srv_get_volume = this->create_service<robohead_msgs::srv::SimpleCommand>(
+        srv_get_volume = this->create_service<robohead_interfaces::srv::SimpleCommand>(
                                                                                 srv_get_volume_name,
                                                                                 std::bind(&MediaDriver::getVolumeCallback, this,
                                                                                 std::placeholders::_1, std::placeholders::_2)
                                                                                 );
 
-        srv_set_volume = this->create_service<robohead_msgs::srv::SimpleCommand>(
+        srv_set_volume = this->create_service<robohead_interfaces::srv::SimpleCommand>(
                                                                                 srv_set_volume_name,
                                                                                 std::bind(&MediaDriver::setVolumeCallback, this,
                                                                                 std::placeholders::_1, std::placeholders::_2)
@@ -80,9 +80,9 @@ private:
     std::string srv_get_volume_name;
     int screen_rotate_ = 0;
 
-    rclcpp::Service<robohead_msgs::srv::PlayMedia>::SharedPtr srv_play_media;
-    rclcpp::Service<robohead_msgs::srv::SimpleCommand>::SharedPtr srv_get_volume;
-    rclcpp::Service<robohead_msgs::srv::SimpleCommand>::SharedPtr srv_set_volume;
+    rclcpp::Service<robohead_interfaces::srv::PlayMedia>::SharedPtr srv_play_media;
+    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_get_volume;
+    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_set_volume;
         
     // Только отправка (без ответа)
     bool sendCommandNoReply(const nlohmann::json& cmd)
@@ -144,8 +144,8 @@ private:
     }
 
     void playMediaCallback(
-        const std::shared_ptr<robohead_msgs::srv::PlayMedia::Request> request,
-        std::shared_ptr<robohead_msgs::srv::PlayMedia::Response> response)
+        const std::shared_ptr<robohead_interfaces::srv::PlayMedia::Request> request,
+        std::shared_ptr<robohead_interfaces::srv::PlayMedia::Response> response)
     {
         response->data = -1;
 
@@ -263,8 +263,8 @@ private:
 
 
     void setVolumeCallback(
-        const std::shared_ptr<robohead_msgs::srv::SimpleCommand::Request> request,
-        std::shared_ptr<robohead_msgs::srv::SimpleCommand::Response> response)
+        const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
+        std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response)
     {
         // Ограничиваем значение 0-100
         int vol = std::max(0, std::min(100, static_cast<int>(request->data)));
@@ -279,8 +279,8 @@ private:
 
         // Получение громкости
     void getVolumeCallback(
-        const std::shared_ptr<robohead_msgs::srv::SimpleCommand::Request> request,
-        std::shared_ptr<robohead_msgs::srv::SimpleCommand::Response> response)
+        const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
+        std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response)
     {
         (void)request;
 

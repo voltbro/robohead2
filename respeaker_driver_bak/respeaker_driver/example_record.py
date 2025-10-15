@@ -5,7 +5,7 @@
 # ========================================================= #
 
 import rclpy.node
-from robohead_msgs.msg import AudioData # Подключаем тип сообщения для топиков с аудио-сигналом
+from robohead_interfaces.msg import AudioData # Подключаем тип сообщения для топиков с аудио-сигналом
 
 import rclpy # библиотека для работы с ROS
 
