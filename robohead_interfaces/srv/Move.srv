@@ -1,0 +1,6 @@
+int16 angle_a
+int16 angle_b
+float64 duration
+bool is_block
+---
+int16 data
