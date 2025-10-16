@@ -1,1 +1,0 @@
-ColorRGBuint8[] colors

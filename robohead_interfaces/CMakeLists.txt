@@ -17,12 +17,12 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SimpleCommand.srv"
   "srv/PlayMedia.srv"
-  "srv/ColorPallete.srv"
-  "srv/ColorRGBuint8.srv"
+  "srv/ColorPalette.srv"
+  "srv/Color.srv"
 
   "msg/AudioData.msg"
-  "msg/ColorRGBuint8.msg"
-  "msg/ColorRGBuint8Array.msg"
+  "msg/Color.msg"
+  "msg/ColorArray.msg"
   # DEPENDENCIES geometry_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 
