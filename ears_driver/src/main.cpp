@@ -17,17 +17,17 @@
 #define LED0_ON_L 0x06
 
 /*
-ros2 service call /neck_driver/neck_set_angle robohead_interfaces/srv/Move "angle_a: 0
+ros2 service call /ears_driver/ears_set_angle robohead_interfaces/srv/Move "angle_a: 0
 angle_b: 0
 duration: 1.0
 is_block: false"
 */
 
 /*
-colcon build --packages-select neck_driver --symlink-install
+colcon build --packages-select ears_driver --symlink-install
 */
 
-class NeckDriver : public rclcpp::Node
+class EarsDriver : public rclcpp::Node
 {
     int _i2c_address;
     int _servo_1_channel;
@@ -35,7 +35,7 @@ class NeckDriver : public rclcpp::Node
     int _servo_1_coef;
     int _servo_2_coef;
     int _servo_pulse_low, _servo_pulse_high;
-    int _v_from, _v_to, _h_from, _h_to;
+    int _l_from, _l_to, _r_from, _r_to;
 
     // Состояние
     std::mutex _goal_mutex;
@@ -43,7 +43,7 @@ class NeckDriver : public rclcpp::Node
     std::array<double, 2> _current_angles;
     std::array<double, 3> _goal_angles;
 
-    rclcpp::Service<robohead_interfaces::srv::Move>::SharedPtr _srv_neck_set_angle;
+    rclcpp::Service<robohead_interfaces::srv::Move>::SharedPtr _srv_ears_set_angle;
     std::thread _trajectory_thread;
 
     struct CubicCoeffs
@@ -52,12 +52,12 @@ class NeckDriver : public rclcpp::Node
     };
 
 public:
-    NeckDriver() : Node("neck_driver")
+    EarsDriver() : Node("ears_driver")
     {
         // Параметры
-        this->declare_parameter<std::string>("srv_neck_set_angle_name", "~/neck_set_angle");
-        this->declare_parameter<int>("std_vertical_angle", 0);
-        this->declare_parameter<int>("std_horizontal_angle", 0);
+        this->declare_parameter<std::string>("srv_ears_set_angle_name", "~/ears_set_angle");
+        this->declare_parameter<int>("std_left_angle", 0);
+        this->declare_parameter<int>("std_right_angle", 0);
         this->declare_parameter<int>("i2c_address", 0x40);
         this->declare_parameter<int>("servo_1_channel", 0);
         this->declare_parameter<int>("servo_2_channel", 1);
@@ -65,16 +65,16 @@ public:
         this->declare_parameter<int>("servo_2_coef", 0);
         this->declare_parameter<int>("servo_pulse_low", 120);
         this->declare_parameter<int>("servo_pulse_high", 550);
-        this->declare_parameter<int>("constraints.v_from", -30);
-        this->declare_parameter<int>("constraints.v_to", 30);
-        this->declare_parameter<int>("constraints.h_from", -30);
-        this->declare_parameter<int>("constraints.h_to", 30);
+        this->declare_parameter<int>("constraints.l_from", -30);
+        this->declare_parameter<int>("constraints.l_to", 30);
+        this->declare_parameter<int>("constraints.r_from", -30);
+        this->declare_parameter<int>("constraints.r_to", 30);
 
         std::string srv_name;
-        int std_v, std_h;
-        this->get_parameter("srv_neck_set_angle_name", srv_name);
-        this->get_parameter("std_vertical_angle", std_v);
-        this->get_parameter("std_horizontal_angle", std_h);
+        int std_l, std_r;
+        this->get_parameter("srv_ears_set_angle_name", srv_name);
+        this->get_parameter("std_left_angle", std_l);
+        this->get_parameter("std_right_angle", std_r);
 
         this->get_parameter("i2c_address", _i2c_address);
         this->get_parameter("servo_1_channel", _servo_1_channel);
@@ -84,50 +84,50 @@ public:
         this->get_parameter("servo_pulse_low", _servo_pulse_low);
         this->get_parameter("servo_pulse_high", _servo_pulse_high);
 
-        this->get_parameter("constraints.v_from", _v_from);
-        this->get_parameter("constraints.v_to", _v_to);
-        this->get_parameter("constraints.h_from", _h_from);
-        this->get_parameter("constraints.h_to", _h_to);
+        this->get_parameter("constraints.l_from", _l_from);
+        this->get_parameter("constraints.l_to", _l_to);
+        this->get_parameter("constraints.r_from", _r_from);
+        this->get_parameter("constraints.r_to", _r_to);
 
-        // RCLCPP_INFO(this->get_logger(), "srv_neck_set_angle_name: %s", srv_name.c_str());
-        // RCLCPP_INFO(this->get_logger(), "std_vertical_angle: %i", std_v);
-        // RCLCPP_INFO(this->get_logger(), "std_horizontal_angle: %i", std_h);
-        // RCLCPP_INFO(this->get_logger(), "i2c_address: %i", _i2c_address);
-        // RCLCPP_INFO(this->get_logger(), "servo_1_channel: %i", _servo_1_channel);
-        // RCLCPP_INFO(this->get_logger(), "servo_2_channel: %i", _servo_2_channel);
-        // RCLCPP_INFO(this->get_logger(), "servo_1_coef: %i", _servo_1_coef);
-        // RCLCPP_INFO(this->get_logger(), "servo_2_coef: %i", _servo_2_coef);
-        // RCLCPP_INFO(this->get_logger(), "servo_pulse_low: %i", _servo_pulse_low);
-        // RCLCPP_INFO(this->get_logger(), "servo_pulse_high: %i", _servo_pulse_high);
-        // RCLCPP_INFO(this->get_logger(), "constraints.v_from: %i", _v_from);
-        // RCLCPP_INFO(this->get_logger(), "constraints.v_to: : %i", _v_to);
-        // RCLCPP_INFO(this->get_logger(), "constraints.h_from: : %i", _h_from);
-        // RCLCPP_INFO(this->get_logger(), "constraints.h_to: : %i", _h_to);
+        RCLCPP_INFO(this->get_logger(), "srv_ears_set_angle_name: %s", srv_name.c_str());
+        RCLCPP_INFO(this->get_logger(), "std_vertical_angle: %i", std_l);
+        RCLCPP_INFO(this->get_logger(), "std_horizontal_angle: %i", std_r);
+        RCLCPP_INFO(this->get_logger(), "i2c_address: %i", _i2c_address);
+        RCLCPP_INFO(this->get_logger(), "servo_1_channel: %i", _servo_1_channel);
+        RCLCPP_INFO(this->get_logger(), "servo_2_channel: %i", _servo_2_channel);
+        RCLCPP_INFO(this->get_logger(), "servo_1_coef: %i", _servo_1_coef);
+        RCLCPP_INFO(this->get_logger(), "servo_2_coef: %i", _servo_2_coef);
+        RCLCPP_INFO(this->get_logger(), "servo_pulse_low: %i", _servo_pulse_low);
+        RCLCPP_INFO(this->get_logger(), "servo_pulse_high: %i", _servo_pulse_high);
+        RCLCPP_INFO(this->get_logger(), "constraints.l_from: %i", _l_from);
+        RCLCPP_INFO(this->get_logger(), "constraints.l_to: : %i", _l_to);
+        RCLCPP_INFO(this->get_logger(), "constraints.r_from: : %i", _r_from);
+        RCLCPP_INFO(this->get_logger(), "constraints.r_to: : %i", _r_to);
 
-        _goal_angles = {static_cast<double>(std_v), static_cast<double>(std_h), 0.0};
+        _goal_angles = {static_cast<double>(std_l), static_cast<double>(std_r), 0.0};
 
         {
-            double angle1 = 90.0 - std_v - std_h + _servo_1_coef;
-            double angle2 = 90.0 + std_v - std_h + _servo_2_coef;
+            double angle1 = 90 + std_l;
+            double angle2 = 90 + std_r;
             angle1 = std::clamp(angle1, 0.0, 180.0);
             angle2 = std::clamp(angle2, 0.0, 180.0);
 
             set_servo_angle(_servo_1_channel, angle1);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             set_servo_angle(_servo_2_channel, angle2);
-            _current_angles = {static_cast<double>(std_v), static_cast<double>(std_h)};
+            _current_angles = {static_cast<double>(std_l), static_cast<double>(std_r)};
         }
 
-        _srv_neck_set_angle = this->create_service<robohead_interfaces::srv::Move>(
+        _srv_ears_set_angle = this->create_service<robohead_interfaces::srv::Move>(
             srv_name,
-            std::bind(&NeckDriver::handle_service, this, std::placeholders::_1, std::placeholders::_2));
+            std::bind(&EarsDriver::handle_service, this, std::placeholders::_1, std::placeholders::_2));
 
-        _trajectory_thread = std::thread(&NeckDriver::trajectory_planner, this);
+        _trajectory_thread = std::thread(&EarsDriver::trajectory_planner, this);
 
-        RCLCPP_INFO(this->get_logger(), "neck_driver INITED");
+        RCLCPP_INFO(this->get_logger(), "ears_driver INITED");
     }
 
-    ~NeckDriver()
+    ~EarsDriver()
     {
         if (_trajectory_thread.joinable())
         {
@@ -136,19 +136,20 @@ public:
     }
 
 private:
-    void set_angle(double vertical, double horizontal)
+    void set_angle(double left, double right)
     {
         std::lock_guard<std::mutex> lock(_goal_mutex);
 
-        double angle1 = 90.0 - vertical - horizontal + _servo_1_coef;
-        double angle2 = 90.0 + vertical - horizontal + _servo_2_coef;
+        double angle1 = 90 + left;
+        double angle2 = 90 - right;
+
 
         angle1 = std::clamp(angle1, 0.0, 180.0);
         angle2 = std::clamp(angle2, 0.0, 180.0);
 
         set_servo_angle(_servo_1_channel, angle1);
         set_servo_angle(_servo_2_channel, angle2);
-        _current_angles = {vertical, horizontal};
+        _current_angles = {left, right};
     }
 
     CubicCoeffs generate_cubic(double angle_cur, double angle_goal, double time)
@@ -164,62 +165,62 @@ private:
 
     void trajectory_planner()
     {
-        double prev_goal_v = _goal_angles[0];
-        double prev_goal_h = _goal_angles[1];
+        double prev_goal_l = _goal_angles[0];
+        double prev_goal_r = _goal_angles[1];
 
         std::chrono::time_point<std::chrono::steady_clock> start_time = std::chrono::steady_clock::now();
         std::chrono::time_point<std::chrono::steady_clock> now;
         rclcpp::Rate loop_rate(50); // 50 Hz
-        double cur_v;
-        double cur_h;
-        double goal_v;
-        double goal_h;
+        double cur_l;
+        double cur_r;
+        double goal_l;
+        double goal_r;
         double duration;
-        CubicCoeffs cubic_v, cubic_h;
+        CubicCoeffs cubic_l, cubic_r;
         while (rclcpp::ok())
         {
             {
                 std::lock_guard<std::mutex> lock(_goal_mutex);
-                cur_v = _current_angles[0];
-                cur_h = _current_angles[1];
-                goal_v = _goal_angles[0];
-                goal_h = _goal_angles[1];
+                cur_l = _current_angles[0];
+                cur_r = _current_angles[1];
+                goal_l = _goal_angles[0];
+                goal_r = _goal_angles[1];
                 duration = _goal_angles[2];
             }
 
             if (duration > 0.0)
             {
-                if (prev_goal_v != goal_v || prev_goal_h != goal_h)
+                if (prev_goal_l != goal_l || prev_goal_r != goal_r)
                 {
                     start_time = std::chrono::steady_clock::now();
-                    cubic_v = generate_cubic(cur_v, goal_v, duration);
-                    cubic_h = generate_cubic(cur_h, goal_h, duration);
-                    prev_goal_v = goal_v;
-                    prev_goal_h = goal_h;
+                    cubic_l = generate_cubic(cur_l, goal_l, duration);
+                    cubic_r = generate_cubic(cur_r, goal_r, duration);
+                    prev_goal_l = goal_l;
+                    prev_goal_r = goal_r;
                 }
 
                 now = std::chrono::steady_clock::now();
                 double elapsed = std::chrono::duration<double>(now - start_time).count();
 
-                double dist = std::sqrt(std::pow(goal_v - cur_v, 2) + std::pow(goal_h - cur_h, 2));
+                double dist = std::sqrt(std::pow(goal_l - cur_l, 2) + std::pow(goal_r - cur_r, 2));
 
                 if (dist >= 0.5 && elapsed < duration)
                 {
-                    set_angle(cubic_v.a0 + cubic_v.a2 * elapsed * elapsed + cubic_v.a3 * elapsed * elapsed * elapsed,
-                              cubic_h.a0 + cubic_h.a2 * elapsed * elapsed + cubic_h.a3 * elapsed * elapsed * elapsed);
+                    set_angle(cubic_l.a0 + cubic_l.a2 * elapsed * elapsed + cubic_l.a3 * elapsed * elapsed * elapsed,
+                              cubic_r.a0 + cubic_r.a2 * elapsed * elapsed + cubic_r.a3 * elapsed * elapsed * elapsed);
                 }
                 else
                 {
-                    set_angle(goal_v, goal_h);
+                    set_angle(goal_l, goal_r);
                 }
             }
             else
             {
-                if (prev_goal_v != goal_v || prev_goal_h != goal_h)
+                if (prev_goal_l != goal_l || prev_goal_r != goal_r)
                 {
-                    set_angle(goal_v, goal_h);
-                    prev_goal_v = goal_v;
-                    prev_goal_h = goal_h;
+                    set_angle(goal_l, goal_r);
+                    prev_goal_l = goal_l;
+                    prev_goal_r = goal_r;
                 }
             }
 
@@ -231,17 +232,17 @@ private:
         const std::shared_ptr<robohead_interfaces::srv::Move::Request> request,
         std::shared_ptr<robohead_interfaces::srv::Move::Response> response)
     {
-        int16_t vertical = request->angle_a;
-        int16_t horizontal = request->angle_b;
+        int16_t left = request->angle_a;
+        int16_t right = request->angle_b;
         double duration = request->duration;
         bool is_block = request->is_block;
 
-        if (vertical < _v_from || vertical > _v_to)
+        if (left < _l_from || left > _l_to)
         {
             response->data = -1;
             return;
         }
-        if (horizontal < _h_from || horizontal > _h_to)
+        if (right < _r_from || right > _r_to)
         {
             response->data = -2;
             return;
@@ -254,7 +255,7 @@ private:
 
         {
             std::lock_guard<std::mutex> lock(_goal_mutex);
-            _goal_angles = {static_cast<double>(vertical), static_cast<double>(horizontal), duration};
+            _goal_angles = {static_cast<double>(left), static_cast<double>(right), duration};
         }
 
         if (is_block)
@@ -365,7 +366,7 @@ private:
 int main(int argc, char *argv[])
 {
     rclcpp::init(argc, argv);
-    std::shared_ptr<rclcpp::Node> node = std::make_shared<NeckDriver>();
+    std::shared_ptr<rclcpp::Node> node = std::make_shared<EarsDriver>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

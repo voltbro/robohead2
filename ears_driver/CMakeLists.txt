@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(neck_driver)  # ← ВАЖНО: должно совпадать с именем папки пакета!
+project(ears_driver)  # ← ВАЖНО: должно совпадать с именем папки пакета!
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
