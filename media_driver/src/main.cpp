@@ -6,8 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <thread> // для sleep
 #include <poll.h>
-
-// #include "mpv_display_driver/srv/play_media.hpp"
+#include <curl/curl.h>
 #include "robohead_interfaces/srv/simple_command.hpp"                                       
 #include "robohead_interfaces/srv/play_media.hpp"   
 
@@ -15,6 +14,20 @@
 /* example usage
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: '/home/pi/loadingVideo.mp4'
 path_to_override_audio_file: '/home/pi/file.mp3'
+is_block: 0
+is_cycle: 0" 
+*/
+
+/* example usage
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: 'http://chanson.hostingradio.ru:8041/chanson256.mp3'
+path_to_override_audio_file: ''
+is_block: 0
+is_cycle: 0" 
+*/
+
+/* example usage
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: '/home/pi/video_audio.mov'
+path_to_override_audio_file: 'http://chanson.hostingradio.ru:8041/chanson256.mp3'
 is_block: 0
 is_cycle: 0" 
 */
@@ -83,7 +96,40 @@ private:
     rclcpp::Service<robohead_interfaces::srv::PlayMedia>::SharedPtr srv_play_media;
     rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_get_volume;
     rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_set_volume;
-        
+
+
+    static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp) {
+        (void)contents;
+        (void)userp;
+        return size * nmemb; // Принимаем данные, но не сохраняем
+    }
+
+    bool is_url_accessible(const std::string& url, int timeout_sec = 5) {
+        CURL *curl;
+        CURLcode res;
+        bool accessible = false;
+
+        curl = curl_easy_init();
+        if (!curl) return false;
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L); // HEAD-запрос
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_sec);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L); // следовать редиректам
+
+        res = curl_easy_perform(curl);
+        if (res == CURLE_OK) {
+            long response_code;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+            accessible = (response_code == 200 || response_code == 206); // 206 = Partial Content (для потоков)
+        }
+
+        curl_easy_cleanup(curl);
+        return accessible;
+    }
+
+
     // Только отправка (без ответа)
     bool sendCommandNoReply(const nlohmann::json& cmd)
     {
@@ -158,17 +204,44 @@ private:
         return;
     }
 
-    if (!std::filesystem::exists(request->path_to_media_file)) {
-        RCLCPP_ERROR(this->get_logger(), "Media file not found: %s", 
-                     request->path_to_media_file.c_str());
-        return;
+
+    auto is_url = [](const std::string& s) -> bool {
+        return s.find("http://") == 0 || s.find("https://") == 0 || s.find("rtmp://") == 0;
+    };
+
+    if (is_url(request->path_to_media_file)) {
+        RCLCPP_INFO(this->get_logger(), "Detected URL: %s", request->path_to_media_file.c_str());
+        if (!is_url_accessible(request->path_to_media_file)) {
+            RCLCPP_ERROR(this->get_logger(), "URL is not accessible: %s", request->path_to_media_file.c_str());
+            response->data = -2; // ошибка: недоступен URL
+            return;
+        }
+    } else {
+        // Локальный файл
+        if (!std::filesystem::exists(request->path_to_media_file)) {
+            RCLCPP_ERROR(this->get_logger(), "Media file not found: %s", request->path_to_media_file.c_str());
+            response->data = -1;
+            return;
+        }
     }
 
-    if (!request->path_to_override_audio_file.empty() &&
-        !std::filesystem::exists(request->path_to_override_audio_file)) {
-        RCLCPP_ERROR(this->get_logger(), "Override audio file not found: %s", 
-                     request->path_to_override_audio_file.c_str());
-        return;
+    if (!request->path_to_override_audio_file.empty())
+    {
+    if (is_url(request->path_to_override_audio_file)) {
+        RCLCPP_INFO(this->get_logger(), "Detected URL: %s", request->path_to_override_audio_file.c_str());
+        if (!is_url_accessible(request->path_to_override_audio_file)) {
+            RCLCPP_ERROR(this->get_logger(), "URL is not accessible: %s", request->path_to_override_audio_file.c_str());
+            response->data = -2; // ошибка: недоступен URL
+            return;
+        }
+    } else {
+        // Локальный файл
+        if (!std::filesystem::exists(request->path_to_override_audio_file)) {
+            RCLCPP_ERROR(this->get_logger(), "Media file not found: %s", request->path_to_override_audio_file.c_str());
+            response->data = -1;
+            return;
+        }
+    }
     }
 
     // 1. Загрузка файла

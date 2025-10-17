@@ -15,6 +15,9 @@ find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(robohead_interfaces REQUIRED)  
 
+find_package(CURL REQUIRED)
+
+
 
 
 # Исполняемый файл
@@ -26,7 +29,7 @@ ament_target_dependencies(main
   std_msgs
   robohead_interfaces
 )
-
+target_link_libraries(main CURL::libcurl)
 # Установка
 install(TARGETS main
   DESTINATION lib/${PROJECT_NAME}
