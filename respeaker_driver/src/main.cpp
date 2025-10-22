@@ -9,7 +9,7 @@
 
 #define PA_NO_JACK
 #include <portaudio.h>
-// #include <alsa/asoundlib.h>
+#include <alsa/asoundlib.h>
 #include <vector>
 #include <string>
 #include <libusb-1.0/libusb.h>
@@ -117,7 +117,10 @@ public:
     //   this->get_parameter("ros/topic_audio_channel_5_name", topic_audio_channel_names);
 
 
-
+    if (!initUsb()) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to initialize USB");
+        return;
+    }
 
       // Инициализация PortAudio
 
@@ -217,10 +220,7 @@ public:
       }
 
 
-    if (!initUsb()) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to initialize USB");
-        return;
-    }
+
 
     srv_mode_ = this->create_service<robohead_interfaces::srv::SimpleCommand>(
         "~/set_mode",
@@ -457,11 +457,11 @@ bool resetUsbDevice(uint16_t vid, uint16_t pid)
             libusb_detach_kernel_driver(usb_dev_, 0);
         }
 
-        err = libusb_claim_interface(usb_dev_, 0);
-        if (err < 0) {
-            RCLCPP_ERROR(this->get_logger(), "libusb claim interface failed: %d", err);
-            return false;
-        }
+        // err = libusb_claim_interface(usb_dev_, 0);
+        // if (err < 0) {
+        //     RCLCPP_ERROR(this->get_logger(), "libusb claim interface failed: %d", err);
+        //     return false;
+        // }
 
         return true;
     }
