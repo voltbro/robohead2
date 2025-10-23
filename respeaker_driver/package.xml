@@ -9,6 +9,7 @@
 
   
   <depend>libusb-1.0-dev</depend>
+  <depend>robohead_interfaces</depend>
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <test_depend>ament_lint_auto</test_depend>
