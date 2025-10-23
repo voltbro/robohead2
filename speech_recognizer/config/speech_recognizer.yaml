@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+    default_mode: 0
+    # 0 kws
+    # 1 commands
+    # free
+    sample_rate: 16000
+    model_path: '/home/pi/robohead_ws/src/robohead2/speech_recognizer/config/vosk-model-small-ru-0.22'
+    wake_phrases:
+      - "слушай робот"
+
+    commands:
+      - 'включи свет'
+      - 'остановись'
+      - 'вперёд'
+
+    ros:
+      service_name:
+        set_mode: '~/set_mode'
+      topic_name:
+        wake_phrases: '~/wake_phrases'
+        commands: '~/commands'
+        audio_input: '/respeaker_driver/audio/main'

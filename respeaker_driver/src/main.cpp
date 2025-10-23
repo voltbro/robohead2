@@ -5,7 +5,6 @@
 #include <robohead_interfaces/msg/color_array.hpp>
 #include <robohead_interfaces/srv/color_palette.hpp>
 #include <robohead_interfaces/srv/color.hpp>
-#include <robohead_interfaces/srv/simple_command.hpp>
 
 #define PA_NO_JACK
 #include <portaudio.h>
@@ -19,15 +18,14 @@
 #include <thread>
 #include <chrono>
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-
-
 /* example usage
 ros2 service call /respeaker_driver/set_color_all robohead_interfaces/srv/Color "red: 0
 green: 0
 blue: 255" 
+*/
+
+/*
+ros2 service call /respeaker_driver/set_mode robohead_interfaces/srv/SimpleCommand "data: 4"
 */
 
 /* example usage
@@ -62,60 +60,85 @@ ros2 topic pub /respeaker_driver/set_color_manual robohead_interfaces/msg/ColorA
 class RespeakerDriver : public rclcpp::Node
 
 {
-
-    // Параметры
-    int sample_rate;
-    int frames_per_buffer;
-    int main_channel;
-
-    // PortAudio
-    PaStream *stream = nullptr;
-    int device_index = -1;
-    int num_channels = 6;
-
-    // ROS2
-    rclcpp::Publisher<robohead_interfaces::msg::AudioData>::SharedPtr pub_main;
-    std::vector<rclcpp::Publisher<robohead_interfaces::msg::AudioData>::SharedPtr> pub_channels;
-    std::string topic_audio_main_name;
-    std::vector<std::string> topic_audio_channel_names;
-
     libusb_context *usb_ctx_ = nullptr;
     libusb_device_handle *usb_dev_ = nullptr;
     std::mutex usb_mutex_;
-    int usb_timeout_ = 5000;
-    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_mode_;
-    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_brightness_;
-    rclcpp::Service<robohead_interfaces::srv::Color>::SharedPtr srv_color_all_;
-    rclcpp::Service<robohead_interfaces::srv::ColorPalette>::SharedPtr srv_color_palette_;
-    rclcpp::Subscription<robohead_interfaces::msg::ColorArray>::SharedPtr sub_color_manual_;
+
+    int usb_vendor_id_, usb_product_id_, usb_timeout_, usb_sleep_reset_, usb_sleep_stop_;
+    int audio_sample_rate_, audio_frames_per_buffer_, audio_count_of_channels_, audio_main_channel_;
+
+    // PortAudio
+    PaStream *stream_ = nullptr;
+    int device_index_ = -1;
+    int num_channels_ = 6;
+
+    // ROS2
+    rclcpp::Publisher<robohead_interfaces::msg::AudioData>::SharedPtr pub_main_;
+    std::vector<rclcpp::Publisher<robohead_interfaces::msg::AudioData>::SharedPtr> pub_channels_;
+    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_set_mode_;
+    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_set_brightness_;
+    rclcpp::Service<robohead_interfaces::srv::Color>::SharedPtr srv_set_color_all_;
+    rclcpp::Service<robohead_interfaces::srv::ColorPalette>::SharedPtr srv_set_color_palette_;
+    rclcpp::Subscription<robohead_interfaces::msg::ColorArray>::SharedPtr sub_set_color_manual_;
 
 public:
     RespeakerDriver() : Node("respeaker_driver")
   {
-      // Параметр
+      // Declare Parameters
+      this->declare_parameter("usb/vendor_id", 0x2886);
+      this->declare_parameter("usb/product_id", 0x0018);
+      this->declare_parameter("usb/timeout", 5000);
+      this->declare_parameter("usb/sleep_reset", 500);
+      this->declare_parameter("usb/sleep_stop", 100);
+
       this->declare_parameter("audio/sample_rate", 16000);
       this->declare_parameter("audio/frames_per_buffer", 1024);
-      this->declare_parameter("ros/main_channel", 0);
-      this->declare_parameter("ros/topic_audio_main_name", "~audio/main");
-      this->declare_parameter("ros/topic_audio_channel_0_name", "~audio/channel_0");
-      this->declare_parameter("ros/topic_audio_channel_1_name", "~audio/channel_1");
-      this->declare_parameter("ros/topic_audio_channel_2_name", "~audio/channel_2");
-      this->declare_parameter("ros/topic_audio_channel_3_name", "~audio/channel_3");
-      this->declare_parameter("ros/topic_audio_channel_4_name", "~audio/channel_4");
-      this->declare_parameter("ros/topic_audio_channel_5_name", "~audio/channel_5");
+      this->declare_parameter("audio/count_of_channels", 6);
+      this->declare_parameter("audio/main_channel", 0);
 
+      this->declare_parameter("ros/topic_name/audio_main", "~/audio/main");
+      this->declare_parameter("ros/topic_name/audio_channel_0", "~/audio/channel_0");
+      this->declare_parameter("ros/topic_name/audio_channel_1", "~/audio/channel_1");
+      this->declare_parameter("ros/topic_name/audio_channel_2", "~/audio/channel_2");
+      this->declare_parameter("ros/topic_name/audio_channel_3", "~/audio/channel_3");
+      this->declare_parameter("ros/topic_name/audio_channel_4", "~/audio/channel_4");
+      this->declare_parameter("ros/topic_name/audio_channel_5", "~/audio/channel_5");
+      this->declare_parameter("ros/topic_name/doa", "~/doa");
+      this->declare_parameter("ros/topic_name/set_color_manual", "~/set_color_manual");
 
-      this->get_parameter("audio/sample_rate", sample_rate);
-      this->get_parameter("audio/frames_per_buffer", frames_per_buffer);
-      this->get_parameter("ros/main_channel", main_channel);
-      this->get_parameter("ros/topic_audio_main_name", topic_audio_main_name);
-    //   this->get_parameter("ros/topic_audio_channel_0_name", topic_audio_channel_names);
-    //   this->get_parameter("ros/topic_audio_channel_1_name", topic_audio_channel_names);
-    //   this->get_parameter("ros/topic_audio_channel_2_name", topic_audio_channel_names);
-    //   this->get_parameter("ros/topic_audio_channel_3_name", topic_audio_channel_names);
-    //   this->get_parameter("ros/topic_audio_channel_4_name", topic_audio_channel_names);
-    //   this->get_parameter("ros/topic_audio_channel_5_name", topic_audio_channel_names);
+      this->declare_parameter("ros/service_name/set_brightness", "~/set_brightness");
+      this->declare_parameter("ros/service_name/set_color_all", "~/set_color_all");
+      this->declare_parameter("ros/service_name/set_color_palette", "~/set_color_palette");
+      this->declare_parameter("ros/service_name/set_mode", "~/set_mode");
 
+    // get parameters
+
+    this->get_parameter("usb/vendor_id", usb_vendor_id_);
+      this->get_parameter("usb/product_id", usb_product_id_);
+      this->get_parameter("usb/timeout", usb_timeout_);
+      this->get_parameter("usb/sleep_reset", usb_sleep_reset_);
+      this->get_parameter("usb/sleep_stop", usb_sleep_stop_);
+
+      this->get_parameter("audio/sample_rate", audio_sample_rate_);
+      this->get_parameter("audio/frames_per_buffer", audio_frames_per_buffer_);
+      this->get_parameter("audio/count_of_channels", audio_count_of_channels_);
+      this->get_parameter("audio/main_channel", audio_main_channel_);
+
+      std::string topic_name_audio_main = this->get_parameter("ros/topic_name/audio_main").as_string();
+      std::vector<std::string> topic_names_channel;
+      topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_0").as_string());
+      topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_1").as_string());
+      topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_2").as_string());
+      topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_3").as_string());
+      topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_4").as_string());
+      topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_5").as_string());
+      std::string topic_name_doa = this->get_parameter("ros/topic_name/doa").as_string();
+      std::string topic_name_set_color_manual = this->get_parameter("ros/topic_name/set_color_manual").as_string();
+
+      std::string service_name_set_brightness = this->get_parameter("ros/service_name/set_brightness").as_string();
+      std::string service_name_set_color_all = this->get_parameter("ros/service_name/set_color_all").as_string();
+      std::string service_name_set_color_palette = this->get_parameter("ros/service_name/set_color_palette").as_string();
+      std::string service_name_set_set_mode = this->get_parameter("ros/service_name/set_mode").as_string();
 
     if (!initUsb()) {
         RCLCPP_ERROR(this->get_logger(), "Failed to initialize USB");
@@ -123,22 +146,10 @@ public:
     }
 
       // Инициализация PortAudio
-
-        int stderr_backup = dup(STDERR_FILENO);
-        int devnull = open("/dev/null", O_WRONLY);
-
-    // Перенаправляем stderr в /dev/null
-        dup2(devnull, STDERR_FILENO);
-
       PaError err = Pa_Initialize();
-
-        dup2(stderr_backup, STDERR_FILENO);
-        close(devnull);
-        close(stderr_backup);
 
       if (err != paNoError) {
           RCLCPP_ERROR(this->get_logger(), "PortAudio init failed: %s", Pa_GetErrorText(err));
-          return;
       }
 
       // Поиск ReSpeaker
@@ -146,33 +157,23 @@ public:
       for (int i = 0; i < numDevices; i++) {
           const PaDeviceInfo* info = Pa_GetDeviceInfo(i);
           if (info && info->name && std::string(info->name).find("ReSpeaker") != std::string::npos) {
-              device_index = i;
-              num_channels = info->maxInputChannels;
-              RCLCPP_INFO(this->get_logger(), "Found ReSpeaker: %s (%d channels)", info->name, num_channels);
+              device_index_ = i;
+              num_channels_ = info->maxInputChannels;
+              RCLCPP_INFO(this->get_logger(), "Found ReSpeaker: %s (%d channels)", info->name, num_channels_);
               break;
           }
       }
 
-    if (device_index == -1) {
+    if (device_index_ == -1) {
         RCLCPP_WARN(this->get_logger(), "ReSpeaker not found on first attempt. Trying USB reset...");
 
         // Сброс устройства по VID/PID
-        if (resetUsbDevice(0x2886, 0x0018)) {
+        if (resetUsbDevice(usb_vendor_id_, usb_product_id_)) {
             // Дадим системе немного времени на перечисление
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            std::this_thread::sleep_for(std::chrono::milliseconds(usb_sleep_reset_));
             Pa_Terminate();
 
-        int stderr_backup = dup(STDERR_FILENO);
-        int devnull = open("/dev/null", O_WRONLY);
-
-    // Перенаправляем stderr в /dev/null
-        dup2(devnull, STDERR_FILENO);
-
-       err = Pa_Initialize();
-
-        dup2(stderr_backup, STDERR_FILENO);
-        close(devnull);
-        close(stderr_backup);
+            err = Pa_Initialize();
 
 
             if (err != paNoError) {
@@ -184,63 +185,71 @@ public:
             for (int i = 0; i < numDevices; i++) {
                 const PaDeviceInfo* info = Pa_GetDeviceInfo(i);
                 if (info && info->name && std::string(info->name).find("ReSpeaker") != std::string::npos) {
-                    device_index = i;
-                    num_channels = info->maxInputChannels;
-                    RCLCPP_INFO(this->get_logger(), "ReSpeaker found after USB reset: %s (%d channels)", info->name, num_channels);
+                    device_index_ = i;
+                    num_channels_ = info->maxInputChannels;
+                    RCLCPP_INFO(this->get_logger(), "ReSpeaker found after USB reset: %s (%d channels)", info->name, num_channels_);
                     break;
                 }
             }
         }
     }
 
-      if (device_index == -1) {
+      if (device_index_ == -1) {
           RCLCPP_ERROR(this->get_logger(), "ReSpeaker not found! Check: arecord -l");
           Pa_Terminate();
           return;
       }
 
-      if (num_channels != 6) {
-          RCLCPP_WARN(this->get_logger(), "Expected 6 channels, got %d", num_channels);
+      if (num_channels_ != audio_count_of_channels_) { 
+          RCLCPP_WARN(this->get_logger(), "Expected %d channels, got %d", audio_count_of_channels_, num_channels_);
+      }
+      if (audio_main_channel_ < 0 || audio_main_channel_ >= audio_count_of_channels_) { 
+          RCLCPP_WARN(this->get_logger(), "Main channel: %d. It`s out of %d channels", audio_main_channel_, audio_count_of_channels_);
       }
 
       // Создание публикаторов
       RCLCPP_INFO(this->get_logger(), "Start create pubs");
-      pub_main = this->create_publisher<robohead_interfaces::msg::AudioData>("~/audio/main", 10);
-      for (int i = 0; i < num_channels; i++) {
+      pub_main_ = this->create_publisher<robohead_interfaces::msg::AudioData>(topic_name_audio_main, 10);
+      for (int i = 0; i < num_channels_; i++) {
           rclcpp::Publisher<robohead_interfaces::msg::AudioData>::SharedPtr pub = this->create_publisher<robohead_interfaces::msg::AudioData>(
-              "~/audio/channel_" + std::to_string(i), 10);
-          pub_channels.push_back(pub);
+              topic_names_channel[i], 10);
+          pub_channels_.push_back(pub);
       }
       RCLCPP_INFO(this->get_logger(), "Try open stream");
 
-      // Открытие потока
+            // Открытие потока
       if (!initAudio()) {
-          RCLCPP_ERROR(this->get_logger(), "Failed to open audio stream");
-          Pa_Terminate();
+          // Освобождаем USB
+          if (usb_dev_) {
+              libusb_release_interface(usb_dev_, 0);
+              libusb_close(usb_dev_);
+              usb_dev_ = nullptr;
+          }
+          if (usb_ctx_) {
+              libusb_exit(usb_ctx_);
+              usb_ctx_ = nullptr;
+          }
+          return;
       }
 
-
-
-
-    srv_mode_ = this->create_service<robohead_interfaces::srv::SimpleCommand>(
-        "~/set_mode",
+    srv_set_mode_ = this->create_service<robohead_interfaces::srv::SimpleCommand>(
+        service_name_set_set_mode,
         std::bind(&RespeakerDriver::setModeCallback, this, std::placeholders::_1, std::placeholders::_2));
 
-    srv_brightness_ = this->create_service<robohead_interfaces::srv::SimpleCommand>(
-        "~/set_brightness",
+    srv_set_brightness_ = this->create_service<robohead_interfaces::srv::SimpleCommand>(
+        service_name_set_brightness,
     std::bind(&RespeakerDriver::setBrightnessCallback, this, std::placeholders::_1, std::placeholders::_2));
 
-    srv_color_all_ = this->create_service<robohead_interfaces::srv::Color>(
-        "~/set_color_all",
+    srv_set_color_all_ = this->create_service<robohead_interfaces::srv::Color>(
+        service_name_set_color_all,
         std::bind(&RespeakerDriver::setColorAllCallback, this, std::placeholders::_1, std::placeholders::_2));
 
-    srv_color_palette_ = this->create_service<robohead_interfaces::srv::ColorPalette>(
-        "~/set_color_palette",
+    srv_set_color_palette_ = this->create_service<robohead_interfaces::srv::ColorPalette>(
+        service_name_set_color_palette,
         std::bind(&RespeakerDriver::setColorPaletteCallback, this, std::placeholders::_1, std::placeholders::_2));
 
-    sub_color_manual_ = this->create_subscription<robohead_interfaces::msg::ColorArray>(
-        "~/set_color_manual",
-        10,
+    sub_set_color_manual_ = this->create_subscription<robohead_interfaces::msg::ColorArray>(
+        topic_name_set_color_manual, 10,
         std::bind(&RespeakerDriver::setColorManualCallback, this, std::placeholders::_1));
 
       RCLCPP_INFO(this->get_logger(), "respeaker_driver INITED");
@@ -250,17 +259,16 @@ public:
     ~RespeakerDriver()
     {
         // 1. Остановка и закрытие аудиопотока
-        if (stream) {
-            Pa_AbortStream(stream);
-            Pa_CloseStream(stream);
-            stream = nullptr;
+        if (stream_) {
+            Pa_AbortStream(stream_);
+            Pa_CloseStream(stream_);
+            stream_ = nullptr;
         }
 
         // 2. Завершаем PortAudio СРАЗУ — освобождаем ALSA
         Pa_Terminate();
 
-        // ⏳ Небольшая пауза, чтобы ядро успело освободить устройство
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(usb_sleep_stop_));
 
         // 3. Теперь безопасно работать с USB
         if (usb_dev_) {
@@ -447,9 +455,9 @@ bool resetUsbDevice(uint16_t vid, uint16_t pid)
             return false;
         }
 
-        usb_dev_ = libusb_open_device_with_vid_pid(usb_ctx_, 0x2886, 0x0018);
+        usb_dev_ = libusb_open_device_with_vid_pid(usb_ctx_, usb_vendor_id_, usb_product_id_);
         if (!usb_dev_) {
-            RCLCPP_ERROR(this->get_logger(), "ReSpeaker not found (VID: 0x%04x, PID: 0x%04x)", 0x2886, 0x0018);
+            RCLCPP_ERROR(this->get_logger(), "ReSpeaker not found (VID: 0x%04x, PID: 0x%04x)", usb_vendor_id_, usb_product_id_);
             return false;
         }
 
@@ -457,11 +465,11 @@ bool resetUsbDevice(uint16_t vid, uint16_t pid)
             libusb_detach_kernel_driver(usb_dev_, 0);
         }
 
-        // err = libusb_claim_interface(usb_dev_, 0);
-        // if (err < 0) {
-        //     RCLCPP_ERROR(this->get_logger(), "libusb claim interface failed: %d", err);
-        //     return false;
-        // }
+        err = libusb_claim_interface(usb_dev_, 0);
+        if (err < 0) {
+            RCLCPP_ERROR(this->get_logger(), "libusb claim interface failed: %d", err);
+            return false;
+        }
 
         return true;
     }
@@ -469,18 +477,18 @@ bool resetUsbDevice(uint16_t vid, uint16_t pid)
   bool initAudio()
   {
       PaStreamParameters inputParams;
-      inputParams.device = device_index;
-      inputParams.channelCount = num_channels;
+      inputParams.device = device_index_;
+      inputParams.channelCount = num_channels_;
       inputParams.sampleFormat = paInt16;
-      inputParams.suggestedLatency = Pa_GetDeviceInfo(device_index)->defaultLowInputLatency;
+      inputParams.suggestedLatency = Pa_GetDeviceInfo(device_index_)->defaultLowInputLatency;
       inputParams.hostApiSpecificStreamInfo = nullptr;
 
       PaError err = Pa_OpenStream(
-          &stream,
+          &stream_,
           &inputParams,
           nullptr, // output
-          sample_rate,
-          frames_per_buffer,
+          audio_sample_rate_,
+          audio_frames_per_buffer_,
           paClipOff,
           audioCallback,
           this
@@ -491,7 +499,7 @@ bool resetUsbDevice(uint16_t vid, uint16_t pid)
           return false;
       }
 
-      err = Pa_StartStream(stream);
+      err = Pa_StartStream(stream_);
       if (err != paNoError) {
           RCLCPP_ERROR(this->get_logger(), "Start stream failed: %s", Pa_GetErrorText(err));
           return false;
@@ -500,51 +508,68 @@ bool resetUsbDevice(uint16_t vid, uint16_t pid)
       return true;
   }
 
+static int audioCallback(
+    const void *input, void *output,
+    unsigned long frameCount,
+    const PaStreamCallbackTimeInfo* timeInfo,
+    PaStreamCallbackFlags statusFlags,
+    void *userData)
+{
+    (void)output; (void)timeInfo; (void)statusFlags;
 
-  static int audioCallback(
-      const void *input, void *output,
-      unsigned long frameCount,
-      const PaStreamCallbackTimeInfo* timeInfo,
-      PaStreamCallbackFlags statusFlags,
-      void *userData)
-  {
-      (void)output; (void)timeInfo; (void)statusFlags;
+    RespeakerDriver* node = static_cast<RespeakerDriver*>(userData);
+    const int16_t* data = static_cast<const int16_t*>(input);
+    const int num_channels = node->num_channels_;
 
-      RespeakerDriver* node = static_cast<RespeakerDriver*>(userData);
-      const int16_t* data = static_cast<const int16_t*>(input);
+    // Публикуем каждый канал
+    for (int ch = 0; ch < num_channels; ++ch) {
+        robohead_interfaces::msg::AudioData msg;
+        msg.data.resize(frameCount);  // frameCount сэмплов типа int16
 
-      robohead_interfaces::msg::AudioData msg;
-      msg.data.resize(frameCount * sizeof(int16_t));
+        for (size_t i = 0; i < frameCount; ++i) {
+            msg.data[i] = data[i * num_channels + ch];
+        }
 
-      for (int ch = 0; ch < node->num_channels; ch++) {
-          int16_t* out = reinterpret_cast<int16_t*>(msg.data.data());
-          const int16_t* in = &data[ch];
-          for (size_t i = 0; i < frameCount; i++) {
-              out[i] = in[i * node->num_channels];
-          }
+        node->pub_channels_[ch]->publish(std::move(msg));
+    }
 
-          node->pub_channels[ch]->publish(msg);
-          if (ch == node->main_channel) {
-              node->pub_main->publish(msg);
-          }
-      }
+    // Публикуем основной канал отдельно (если нужно дублировать)
+    if (node->audio_main_channel_ >= 0 && node->audio_main_channel_ < num_channels) {
+        robohead_interfaces::msg::AudioData main_msg;
+        main_msg.data.resize(frameCount);
+        for (size_t i = 0; i < frameCount; ++i) {
+            main_msg.data[i] = data[i * num_channels + node->audio_main_channel_];
+        }
+        node->pub_main_->publish(std::move(main_msg));
+    }
 
-      return paContinue;
-  }
+    return paContinue;
+}
+
 };
+
+
+static void alsa_error_handler(const char *file, int line, const char *function,
+                               int err, const char *fmt, ...) {
+    // Пусто — подавляем все ALSA-предупреждения
+    (void)file; (void)line; (void)function; (void)err; (void)fmt;
+    // Аргументы ... игнорируем — нам не нужны сообщения
+}
 
 int main(int argc, char *argv[])
 {
 
     //     // Подавляем ALSA-предупреждения
-    // snd_lib_error_set_handler([](const char *file, int line, const char *func, int err, const char *fmt, ...) { });
-
-    // // Подавляем JACK (если не используешь)
-    // setenv("JACK_NO_AUDIO_RESERVATION", "1", 1);
+    snd_lib_error_set_handler(alsa_error_handler);
 
     rclcpp::init(argc, argv);
     std::shared_ptr<rclcpp::Node> node = std::make_shared<RespeakerDriver>();
-    rclcpp::spin(node);
+
+    // Используем многопоточный исполнитель для безопасной публикации из колбэка
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(node);
+    executor.spin();
+
     rclcpp::shutdown();
     return 0;
 }

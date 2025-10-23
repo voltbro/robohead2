@@ -8,6 +8,7 @@ from std_msgs.msg import String
 from vosk import Model, KaldiRecognizer
 import json
 import os
+from ament_index_python.packages import get_package_share_directory
 
 # ros2 service call /speech/set_mode robohead_interfaces/srv/SimpleCommand "data: 1"
 # colcon build --packages-select speech_recognizer --symlink-install
@@ -16,13 +17,30 @@ class SpeechRecognizer(Node):
         super().__init__('speech_recognizer')
 
         # Параметры
-        self.declare_parameter('model_path', '/home/pi/vosk-model-small-ru-0.22')
+        self.declare_parameter('default_mode', 0)
+        self.declare_parameter('sample_rate', 16000)
+        self.declare_parameter('model_path', 'vosk-model-small-ru-0.22')
         self.declare_parameter('wake_phrases', ['слушай робот'])
         self.declare_parameter('commands', ['включи свет', 'остановись', 'вперёд'])
+        self.declare_parameter('ros/service_name/set_mode', '~/set_mode')
+        self.declare_parameter('ros/topic_name/wake_phrases', '~/wake_phrases')
+        self.declare_parameter('ros/topic_name/commands', '~/commands')
+        self.declare_parameter('ros/topic_name/audio_input', '/respeaker_driver/audio/main')
 
         model_path = self.get_parameter('model_path').value
+
         self.wake_phrases = self.get_parameter('wake_phrases').value
         self.commands = self.get_parameter('commands').value
+        srv_name_set_mode = self.get_parameter("ros/service_name/set_mode").value
+        topic_name_wake_phrases = self.get_parameter("ros/topic_name/wake_phrases").value
+        topic_name_commands = self.get_parameter("ros/topic_name/commands").value
+        topic_name_audio_input = self.get_parameter("ros/topic_name/audio_input").value
+        sample_rate = self.get_parameter('sample_rate').value
+        default_mode = self.get_parameter('default_mode').value
+
+
+
+
 
         if not os.path.exists(model_path):
             self.get_logger().error(f"Model not found at {model_path}")
@@ -31,29 +49,29 @@ class SpeechRecognizer(Node):
         self.model = Model(model_path)
 
         # Инициализация распознавателей
-        self.wake_rec = KaldiRecognizer(self.model, 16000)
+        self.wake_rec = KaldiRecognizer(self.model, sample_rate)
         wake_grammar_json = json.dumps(self.wake_phrases, ensure_ascii=False)
         self.wake_rec.SetGrammar(wake_grammar_json)
 
-        self.grammar_rec = KaldiRecognizer(self.model, 16000)
+        self.grammar_rec = KaldiRecognizer(self.model, sample_rate)
         cmd_grammar_json = json.dumps(self.commands, ensure_ascii=False)
         self.grammar_rec.SetGrammar(cmd_grammar_json)
 
-        self.free_rec = KaldiRecognizer(self.model, 16000)  # без грамматики
+        self.free_rec = KaldiRecognizer(self.model, sample_rate)  # без грамматики
 
         # Начинаем в режиме KWS
-        self.current_mode = 0  # 0 = KWS, 1 = grammar, 2 = free
+        self.current_mode = default_mode  # 0 = KWS, 1 = grammar, 2 = free
 
         # ROS
         self.audio_sub = self.create_subscription(
-            AudioData, '/respeaker_driver/audio/main', self.audio_callback, 10)
-        self.wake_pub = self.create_publisher(String, '/speech/wake_phrase', 10)
-        self.cmd_pub = self.create_publisher(String, '/speech/command', 10)
+            AudioData, topic_name_audio_input, self.audio_callback, 10)
+        self.wake_pub = self.create_publisher(String, topic_name_wake_phrases, 10)
+        self.cmd_pub = self.create_publisher(String, topic_name_commands, 10)
 
         # ЕДИНЫЙ сервис управления
-        self.srv = self.create_service(SimpleCommand, '/speech/set_mode', self.set_mode_callback)
+        self.srv = self.create_service(SimpleCommand, srv_name_set_mode, self.set_mode_callback)
 
-        self.get_logger().info("Speech recognizer started in KWS mode (mode=0)")
+        self.get_logger().info(f"Speech recognizer started in KWS mode (mode={self.current_mode})")
 
     def set_mode_callback(self, request, response):
         mode = request.data

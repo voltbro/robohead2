@@ -39,6 +39,11 @@ target_compile_features(main PUBLIC c_std_99 cxx_std_17)
 install(TARGETS main
   DESTINATION lib/${PROJECT_NAME})
 
+install(
+  DIRECTORY config launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)

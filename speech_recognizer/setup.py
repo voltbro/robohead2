@@ -9,6 +9,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        # Копируем только speech_recognizer.yaml
+        ('share/' + package_name + '/config', ['config/speech_recognizer.yaml']),
     ],
     install_requires=['setuptools', 'vosk'],
     zip_safe=True,
