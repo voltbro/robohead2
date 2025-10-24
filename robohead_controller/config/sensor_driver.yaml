@@ -1,0 +1,6 @@
+/**:
+  ros__parameters:
+    topic_name: "~/battery"
+    publish_rate: 5
+    i2c_address: 67  # 0x43 in decimal
+    i2c_bus: 1

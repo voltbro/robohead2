@@ -60,7 +60,7 @@ class SpeechRecognizer(Node):
         self.free_rec = KaldiRecognizer(self.model, sample_rate)  # без грамматики
 
         # Начинаем в режиме KWS
-        self.current_mode = default_mode  # 0 = KWS, 1 = grammar, 2 = free
+        self.current_mode = default_mode  # 0 = off, 1 = KWS, 2 = grammar, 3 = free
 
         # ROS
         self.audio_sub = self.create_subscription(
@@ -71,14 +71,14 @@ class SpeechRecognizer(Node):
         # ЕДИНЫЙ сервис управления
         self.srv = self.create_service(SimpleCommand, srv_name_set_mode, self.set_mode_callback)
 
-        self.get_logger().info(f"Speech recognizer started in KWS mode (mode={self.current_mode})")
+        self.get_logger().info(f"Speech recognizer started in (mode={self.current_mode})")
 
     def set_mode_callback(self, request, response):
         mode = request.data
-        if mode in (0, 1, 2):
+        if mode in (0, 1, 2, 3):
             self.current_mode = mode
             response.data = mode
-            mode_names = {0: "KWS", 1: "Grammar", 2: "Free"}
+            mode_names = {0:"Off", 1: "KWS", 2: "Grammar", 3: "Free"}
             self.get_logger().info(f"Mode switched to {mode_names[mode]}")
         else:
             response.data = self.current_mode
@@ -86,12 +86,14 @@ class SpeechRecognizer(Node):
         return response
 
     def audio_callback(self, msg):
+        if self.current_mode == 0:
+            return
         if not msg.data:
             return
 
         data = bytes(msg.data)
 
-        if self.current_mode == 0:  # KWS
+        if self.current_mode == 1:  # KWS
             if self.wake_rec.AcceptWaveform(data):
                 res = json.loads(self.wake_rec.Result())
                 text = res.get('text', '').strip().lower()
@@ -104,7 +106,7 @@ class SpeechRecognizer(Node):
                             self.get_logger().info(f"Wake phrase: '{phrase}'")
                             break
 
-        elif self.current_mode == 1:  # Grammar
+        elif self.current_mode == 2:  # Grammar
             if self.grammar_rec.AcceptWaveform(data):
                 res = json.loads(self.grammar_rec.Result())
                 text = res.get('text', '').strip()
@@ -114,7 +116,7 @@ class SpeechRecognizer(Node):
                     self.cmd_pub.publish(cmd_msg)
                     self.get_logger().info(f"Command: '{text}'")
 
-        elif self.current_mode == 2:  # Free
+        elif self.current_mode == 3:  # Free
             if self.free_rec.AcceptWaveform(data):
                 res = json.loads(self.free_rec.Result())
                 text = res.get('text', '').strip()

@@ -21,4 +21,4 @@
       topic_name:
         wake_phrases: '~/wake_phrases'
         commands: '~/commands'
-        audio_input: '/respeaker_driver/audio/main'
+        audio_input: '/robohead_controller/respeaker_driver/audio/main'

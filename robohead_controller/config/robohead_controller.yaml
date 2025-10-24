@@ -1,0 +1,17 @@
+low_voltage_threshold: 6.4
+low_voltage_hysteresis: 0.2
+
+topic_name_image_raw: "~usb_cam/image_raw"
+
+robohead_controller_actions_match: { # сопоставление голововой команды из voice_recognizer_pocketsphinx/gram.txt и файла, запускаемого на исполнение
+  "wait_action" : "std_wait.action",
+  "low_bat_action" : "std_low_bat.action",
+  "слушайробот" : "std_attention.action",
+  "покажи левое ухо": "std_left_ear.action",
+  "покажи правое ухо": "std_right_ear.action",
+  "покажи уши" : "std_ears.action",
+  "сделай фото": "std_make_photo.action",
+  "поздоровайся": "std_greeting.action",
+  "следи за шариком": "std_ball_tracker.action",
+  "покажи напряжение": "std_voltage.action",
+}

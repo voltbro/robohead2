@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    srv_ears_set_angle_name: "~/ears_set_angle"
+    std_left_angle: 0
+    std_right_angle: 0
+    i2c_address: 64  # 0x40 в десятичной
+    servo_1_channel: 2 # left
+    servo_2_channel: 3 # right
+    servo_1_coef: 0 # left
+    servo_2_coef: 0 # right
+    servo_pulse_low: 120
+    servo_pulse_high: 550
+    constraints:
+      l_from: -90
+      l_to: 90
+      r_from: -90
+      r_to: 90

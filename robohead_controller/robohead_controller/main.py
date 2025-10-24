@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+
+import os
+import rclpy
+import importlib.util
+import asyncio
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from robohead_interfaces.msg import AudioData, ColorArray
+from robohead_interfaces.srv import Color, ColorPalette, Move, PlayMedia, SimpleCommand
+from sensor_msgs.msg import BatteryState
+from std_msgs.msg import String
+from sensor_msgs.msg import Image
+
+from ament_index_python.packages import get_package_share_directory
+
+
+
+
+# --- Динамические импорты будут ниже ---
+
+class RoboheadController(Node):
+
+    def __init__(self):
+        super().__init__('robohead_controller')
+
+        # Параметры
+        self.declare_parameter('low_voltage_threshold', 7.0)
+        self.declare_parameter('low_voltage_hysteresis', 0.5)
+        self.declare_parameter('robohead_controller_actions_match', {})
+
+        self.low_voltage_threshold = self.get_parameter('low_voltage_threshold').value
+        self.low_voltage_hysteresis = self.get_parameter('low_voltage_hysteresis').value
+        self.is_allow_work = True
+        actions_match:dict = self.get_parameter('robohead_controller_actions_match').value
+        self.action_paths = get_action_paths(actions_match)
+
+        # Инициализация переменных состояния
+        self.display_driver_touchscreen_xy = (0.0, 0.0)
+        self.sensor_driver_bat_voltage = 8.42
+        self.sensor_driver_bat_current = -2.1
+        self.respeaker_driver_doa_angle = 0
+        self.respeaker_driver_msg_audio_main = None
+        self.usb_cam_image_raw = None
+
+        # --- Подключение к драйверам ---
+        self._connect_media_driver()
+        self._connect_ears_driver()
+        self._connect_neck_driver()
+        self._connect_speakers_driver()
+        self._connect_sensor_driver()
+        self._connect_respeaker_driver()
+        self._connect_voice_recognizer()
+        self._connect_usb_cam()
+
+        self.get_logger().warn("robohead_controller: all packages connected")
+
+    def get_action_paths(self, actions_match:dict) -> dict:
+        # Получаем путь к пакету
+        self.pkg_share = get_package_share_directory('robohead_controller')
+        self.actions_dir = os.path.join(self.pkg_share, '..', 'actions')  # ← папка actions рядом с setup.py
+
+        # Загружаем маппинг
+        # self.actions_match = self.get_parameter('robohead_controller_actions_match').value
+
+        # Создаём словарь: имя действия -> полный путь к action.py
+        action_paths = {}
+        for cmd_name, folder_name in self.actions_match.items():
+            action_path = os.path.join(self.actions_dir, folder_name, 'action.py')
+            if not os.path.exists(action_path):
+                self.get_logger().error(f"Action file not found: {action_path}")
+                continue
+            action_paths[cmd_name] = action_path
+        return action_paths
+
+    def _connect_media_driver(self):
+        # Получаем параметры
+        service_name_play_media = self.get_parameter('~/media_driver/play_media').value
+        # topic_name = self.get_parameter('~display_driver/topic_PlayMedia_name').value
+        # touchscreen_topic = self.get_parameter('~display_driver/topic_touchscreen_name').value
+
+        # Создаем клиент и публикатор
+        self.media_driver_srv_play_media = self.create_client(PlayMedia, service_name_play_media)
+
+        # self.display_driver_pub_PlayMedia = self.create_publisher(Image, topic_name, 1)
+        # self.display_driver_sub_touchscreen = self.create_subscription(
+            # Pose2D, touchscreen_topic, self._display_driver_touchsreen_callback, 10
+        # )
+
+        # Ждем сервиса
+        while not self.media_driver_srv_play_media.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service %s not available, waiting...' % service_name)
+
+        # Запускаем начальный медиафайл
+        msg = PlayMedia.Request()
+        msg.path_to_media_file = '/home/pi/robohead_ws/src/robohead/robohead_controller/scripts/loading_splash.mp4'
+        msg.is_block = False
+        msg.is_cycle = True
+        response: PlayMedia.Response = self.media_driver_srv_play_media.call(msg)
+
+    def _connect_ears_driver(self):
+        service_name = self.get_parameter('~/ears_driver/srv_ears_set_angle_name').value
+        self.ears_driver_srv_ears_set_angle = self.create_client(Move, service_name)
+
+        while not self.ears_driver_srv_ears_set_angle.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Ears service not available, waiting...')
+        self.get_logger().info("Ears driver connected")
+
+    def _connect_neck_driver(self):
+        service_name = self.get_parameter('~neck_driver/srv_neck_set_angle_name').value
+        self.neck_driver_srv_neck_set_angle = self.create_client(Move, service_name)
+        while not self.neck_driver_srv_neck_set_angle.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Neck service not available, waiting...')
+        self.get_logger().info("Neck driver connected")
+
+    # def _connect_speakers_driver(self):
+    #     play_audio_service = self.get_parameter('~speakers_driver/service_PlayAudio_name').value
+    #     get_volume_service = self.get_parameter('~speakers_driver/service_GetVolume_name').value
+    #     set_volume_service = self.get_parameter('~speakers_driver/service_SetVolume_name').value
+
+    #     self.speakers_driver_srv_PlayAudio = self.create_client(PlayAudio, play_audio_service)
+    #     self.speakers_driver_srv_GetVolume = self.create_client(GetVolume, get_volume_service)
+    #     self.speakers_driver_srv_SetVolume = self.create_client(SetVolume, set_volume_service)
+
+    #     for srv in [self.speakers_driver_srv_PlayAudio, self.speakers_driver_srv_GetVolume, self.speakers_driver_srv_SetVolume]:
+    #         while not srv.wait_for_service(timeout_sec=1.0):
+    #             self.get_logger().info('Speaker service not available, waiting...')
+
+    #     self.get_logger().info("Speakers driver connected")
+
+    def _connect_sensor_driver(self):
+        topic_name = self.get_parameter('~sensor_driver/topic_name').value
+        self.sensor_driver_sub_battery = self.create_subscription(BatteryState, topic_name, self._sensor_driver_battery_callback, 10)
+        # Ждем первого сообщения
+        self.get_logger().info("Waiting for first battery message...")
+        msg = self._wait_for_message(BatteryState, topic_name, timeout_sec=5.0)
+        if msg:
+            self.get_logger().info("Sensor driver connected")
+        else:
+            self.get_logger().error("No battery message received")
+
+    def _connect_respeaker_driver(self):
+        # Топики аудио
+        topic_name_audio_main = self.get_parameter('~respeaker_driver/ros/topic_name/audio_main').value
+        topic_name_audio_channel_0 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_0').value
+        topic_name_audio_channel_1 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_1').value
+        topic_name_audio_channel_2 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_2').value
+        topic_name_audio_channel_3 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_3').value
+        topic_name_audio_channel_4 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_4').value
+        topic_name_audio_channel_5 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_5').value
+
+        # doa_topic = self.get_parameter('~respeaker_driver/ros/topic_doa_angle_name').value
+
+        # Сервисы LED
+        service_name_set_brightness = self.get_parameter('~respeaker_driver/ros/service_name/set_brightness').value
+        service_name_set_color_all = self.get_parameter('~respeaker_driver/ros/service_name/set_color_all').value
+        service_name_set_color_palette = self.get_parameter('~respeaker_driver/ros/service_name/set_color_palette').value
+        service_name_set_mode = self.get_parameter('~respeaker_driver/ros/service_name/set_mode').value
+        topic_name_set_color_manual = self.get_parameter('~respeaker_driver/ros/topic_name/set_color_manual').value
+
+        # Подписки
+        self.respeaker_driver_sub_audio_main = self.create_subscription(AudioData, topic_name_audio_main, self._respeaker_driver_audio_main_callback, 10)
+        self.respeaker_driver_sub_audio_channel_0 = self.create_subscription(AudioData, topic_name_audio_channel_0, self._respeaker_driver_audio_channel_0_callback, 10)
+        self.respeaker_driver_sub_audio_channel_1 = self.create_subscription(AudioData, topic_name_audio_channel_1, self._respeaker_driver_audio_channel_1_callback, 10)
+        self.respeaker_driver_sub_audio_channel_2 = self.create_subscription(AudioData, topic_name_audio_channel_2, self._respeaker_driver_audio_channel_2_callback, 10)
+        self.respeaker_driver_sub_audio_channel_3 = self.create_subscription(AudioData, topic_name_audio_channel_3, self._respeaker_driver_audio_channel_3_callback, 10)
+        self.respeaker_driver_sub_audio_channel_4 = self.create_subscription(AudioData, topic_name_audio_channel_4, self._respeaker_driver_audio_channel_4_callback, 10)
+        self.respeaker_driver_sub_audio_channel_5 = self.create_subscription(AudioData, topic_name_audio_channel_5, self._respeaker_driver_audio_channel_5_callback, 10)
+
+        # ... подписки на другие каналы
+        # self.respeaker_driver_sub_doa_angle = self.create_subscription(Int16, doa_topic, self._respeaker_driver_doa_angle_callback, 10)
+
+        # Публикатор
+        self.respeaker_driver_pub_set_color_manual = self.create_publisher(ColorArray, topic_name_set_color_manual, 1)
+
+        # Клиенты сервисов
+        self.respeaker_driver_srv_set_brightness = self.create_client(SimpleCommand, service_name_set_brightness)
+        self.respeaker_driver_srv_set_color_all = self.create_client(Color, service_name_set_color_all)
+        self.respeaker_driver_srv_set_color_palette = self.create_client(ColorPalette, service_name_set_color_palette)
+        self.respeaker_driver_srv_set_mode = self.create_client(SimpleCommand, service_name_set_mode)
+
+        # Ждем сервисов
+        services = [
+            self.respeaker_driver_srv_set_brightness,
+            self.respeaker_driver_srv_set_color_all,
+            self.respeaker_driver_srv_set_color_palette,
+            self.respeaker_driver_srv_set_mode
+        ]
+        for srv in services:
+            while not srv.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(f'Respeaker LED service {srv.srv_type} not available, waiting...')
+
+        # Ждем сообщений
+        self._wait_for_message(AudioData, topic_name_audio_main, timeout_sec=5.0)
+        self._wait_for_message(AudioData, topic_name_audio_channel_0, timeout_sec=5.0)
+        self._wait_for_message(AudioData, topic_name_audio_channel_1, timeout_sec=5.0)
+        self._wait_for_message(AudioData, topic_name_audio_channel_2, timeout_sec=5.0)
+        self._wait_for_message(AudioData, topic_name_audio_channel_3, timeout_sec=5.0)
+        self._wait_for_message(AudioData, topic_name_audio_channel_4, timeout_sec=5.0)
+        self._wait_for_message(AudioData, topic_name_audio_channel_5, timeout_sec=5.0)
+        # self._wait_for_message(AudioData, topic_name_doa, timeout_sec=5.0)
+
+    def _connect_speech_recognizer(self):
+        topic_name_wake_phrases = self.get_parameter('~/speech_recognizer/ros/topic_name/wake_phrases').value
+        topic_name_commands = self.get_parameter('~/speech_recognizer/ros/topic_name/commands').value
+        service_name_set_mode = self.get_parameter('~/speech_recognizer/ros/service_name/set_mode').value 
+
+        self.speech_recognizer_sub_wake_phrases = self.create_subscription(String, topic_name_wake_phrases, self._speech_recognizer_wake_phrases_callback, 10)
+        self.speech_recognizer_sub_commands = self.create_subscription(String, topic_name_commands, self._speech_recognizer_commands_callback, 10)
+        self.speech_recognizer_srv_set_mode = self.create_client(SimpleCommand, service_name_set_mode)
+
+
+ 
+        while not self.speech_recognizer_srv_set_mode.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Voice recognizer service not available, waiting...')
+
+        # Выключаем распознавание по умолчанию
+        msg = SimpleCommand.Request()
+        msg.data = 0 # off detection
+        self.speech_recognizer_srv_set_mode.call(msg)
+        self.get_logger().info("Voice recognizer connected")
+
+    def _connect_usb_cam(self):
+        topic_name_image_raw = self.get_parameter('~/usb_cam/topic_name/image_raw').value
+        self.usb_cam_sub_image_raw = self.create_subscription(Image, topic_name_image_raw, self._usb_cam_image_raw_callback, 10)
+        msg = self._wait_for_message(Image, topic_name_image_raw, timeout_sec=5.0)
+        if msg:
+            self.get_logger().info("USB cam connected")
+        else:
+            self.get_logger().error("No image from USB cam")
+
+    def _execute_action(self, name:str):
+        try:
+            action_path = self.action_paths.get(name)
+            if not module_path:
+                self.get_logger().error(f"Action '{name}' not found in actions_paths")
+                return
+
+            spec = importlib.util.spec_from_file_location(name, action_path)
+            if spec is None:
+                self.get_logger().error(f"Could not load module spec for {name}")
+                return
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # Проверяем наличие функции run
+            if not hasattr(module, 'run'):
+                self.get_logger().error(f"Module {name} does not have a 'run' function")
+                return
+
+            # Вызываем действие
+            self.get_logger().info(f"Executing action: {name}")
+            module.run(self, name)
+            await asyncio.to_thread(module.run, self, name)
+
+        except Exception as e:
+            self.get_logger().error(f"Can't execute command: {name}. Error: {str(e)}")
+
+
+    # async def _execute_action(self, name: str):
+    #     """Асинхронное выполнение действия"""
+    #     try:
+    #         module_path = self.actions_match.get(name)
+    #         if not module_path:
+    #             self.get_logger().error(f"Action '{name}' not found in actions_match")
+    #             return
+
+    #         spec = importlib.util.spec_from_file_location(name, module_path)
+    #         if spec is None:
+    #             self.get_logger().error(f"Could not load module spec for {name}")
+    #             return
+
+    #         module = importlib.util.module_from_spec(spec)
+    #         spec.loader.exec_module(module)
+
+    #         # Проверяем наличие функции run
+    #         if not hasattr(module, 'run'):
+    #             self.get_logger().error(f"Module {name} does not have a 'run' function")
+    #             return
+
+    #         # Вызываем действие
+    #         self.get_logger().info(f"Executing action: {name}")
+    #         await asyncio.to_thread(module.run, self, name)
+
+    #     except Exception as e:
+    #         self.get_logger().error(f"Can't execute command: {name}. Error: {str(e)}")
+
+    def _wait_for_message(self, msg_type, topic, timeout_sec=5.0):
+        """Ждет первого сообщения на топике"""
+        future = asyncio.Future()
+        subscription = self.create_subscription(
+            msg_type, topic, lambda msg: future.set_result(msg), 1
+        )
+
+        try:
+            loop = asyncio.get_event_loop()
+            result = loop.run_until_complete(asyncio.wait_for(future, timeout_sec))
+            subscription.destroy()
+            return result
+        except asyncio.TimeoutError:
+            subscription.destroy()
+            return None
+
+    # --- Callbacks ---
+
+    # def _media_driver_touchsreen_callback(self, msg):
+        # self.display_driver_touchscreen_xy = (msg.x, msg.y)
+
+    def _sensor_driver_battery_callback(self, msg:BatteryState):
+        self.sensor_driver_battery_voltage = msg.voltage
+        self.sensor_driver_battery_current = msg.current
+        if self.sensor_driver_bat_voltage < self.low_voltage_threshold:
+            self.is_allow_work = False
+            asyncio.create_task(self._execute_action('low_bat_action'))
+            self.get_logger().error("Low voltage on battery!")
+
+        elif not self.is_allow_work and self.sensor_driver_bat_voltage >= self.low_voltage_threshold + self.low_voltage_hysteresis:
+            self.is_allow_work = True
+            asyncio.create_task(self._execute_action('wait_action'))
+            
+
+    def _respeaker_driver_audio_main_callback(self, msg):
+        self.respeaker_driver_msg_audio_main = msg
+
+    def _respeaker_driver_audio_channel_0_callback(self, msg):
+        self.respeaker_driver_msg_audio_channel_0 = msg
+    def _respeaker_driver_audio_channel_1_callback(self, msg):
+        self.respeaker_driver_msg_audio_channel_1 = msg
+    def _respeaker_driver_audio_channel_2_callback(self, msg):
+        self.respeaker_driver_msg_audio_channel_2 = msg
+    def _respeaker_driver_audio_channel_3_callback(self, msg):
+        self.respeaker_driver_msg_audio_channel_3 = msg
+    def _respeaker_driver_audio_channel_4_callback(self, msg):
+        self.respeaker_driver_msg_audio_channel_4 = msg
+    def _respeaker_driver_audio_channel_5_callback(self, msg):
+        self.respeaker_driver_msg_audio_channel_5 = msg
+    # ... остальные callbacks (doa)
+
+    def _speech_recognizer_wake_phrases_callback(self, msg:String):
+        if not self.is_allow_work:
+            return
+        msg = SimpleCommand.Request()
+        msg.data = 2 # commands recognition
+        self.speech_recognizer_srv_set_mode.call(msg)
+        asyncio.create_task(self._execute_action(msg.data))
+
+    def _speech_recognizer_commands_callback(self, msg:String):
+        if not self.is_allow_work:
+            return
+        msg = SimpleCommand.Request()
+
+        msg.data = 0 # off recognition
+        self.speech_recognizer_srv_set_mode.call(msg)
+
+        asyncio.create_task(self._execute_action(msg.data))
+
+        asyncio.create_task(self._execute_action('wait_action'))
+
+        msg.data = 1 # kws recognition
+        self.speech_recognizer_srv_set_mode.call(msg)
+
+    def _usb_cam_image_raw_callback(self, msg:Image):
+        self.usb_cam_image_raw = msg
+
+    def start(self):
+        """Запуск после инициализации"""
+        asyncio.create_task(self._execute_action("wait_action"))
+        
+
+        script_path = os.path.dirname(os.path.abspath(__file__)) + '/'
+        msg = PlayMedia.Request()
+        msg.path_to_media_file = script_path + "robohead_connected.mp3"
+        msg.is_block = True
+        msg.is_cycle = False
+        self.media_driver_srv_play_media(msg)
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = RoboheadController()
+
+    # Запускаем основной цикл
+    node.start()
+
+    # Запускаем асинхронный цикл в фоне
+    executor = rclpy.executors.MultiThreadedExecutor()
+    executor.add_node(node)
+
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
