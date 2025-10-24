@@ -11,12 +11,13 @@ from robohead_interfaces.srv import Color, ColorPalette, Move, PlayMedia, Simple
 from sensor_msgs.msg import BatteryState
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
+import json
 
 from ament_index_python.packages import get_package_share_directory
 
+import time
 
-
-
+PACKAGE_SOURCE_DIR = os.path.abspath(os.path.dirname(__file__))
 # --- Динамические импорты будут ниже ---
 
 class RoboheadController(Node):
@@ -27,13 +28,20 @@ class RoboheadController(Node):
         # Параметры
         self.declare_parameter('low_voltage_threshold', 7.0)
         self.declare_parameter('low_voltage_hysteresis', 0.5)
-        self.declare_parameter('robohead_controller_actions_match', {})
+        self.declare_parameter('actions_match', "{}")
+        # self.declare_parameter('actions_match')
+        # print("BROOOOO: ", self.list_parameters([],depth=10))
+
 
         self.low_voltage_threshold = self.get_parameter('low_voltage_threshold').value
         self.low_voltage_hysteresis = self.get_parameter('low_voltage_hysteresis').value
         self.is_allow_work = True
-        actions_match:dict = self.get_parameter('robohead_controller_actions_match').value
-        self.action_paths = get_action_paths(actions_match)
+        actions_str:str = self.get_parameter('actions_match').value
+        actions_match:dict = json.loads(actions_str)
+        print("Action_math UUUUUUUUU: ",actions_match)
+
+        self.action_paths = self.get_action_paths(actions_match)
+        print("Action_paths UUUUUUUUU: ",self.action_paths)
 
         # Инициализация переменных состояния
         self.display_driver_touchscreen_xy = (0.0, 0.0)
@@ -44,28 +52,42 @@ class RoboheadController(Node):
         self.usb_cam_image_raw = None
 
         # --- Подключение к драйверам ---
+        print("robohead_controller: start_connect")
         self._connect_media_driver()
+        self.get_logger().info("robohead_controller: media_driver connected")
+
         self._connect_ears_driver()
+        self.get_logger().warn("robohead_controller: ears_driver connected")
+
         self._connect_neck_driver()
-        self._connect_speakers_driver()
+        self.get_logger().warn("robohead_controller: neck_driver connected")
+
         self._connect_sensor_driver()
+        self.get_logger().warn("robohead_controller: sensor_driver connected")
+
         self._connect_respeaker_driver()
-        self._connect_voice_recognizer()
-        self._connect_usb_cam()
+        self.get_logger().warn("robohead_controller: respeaker_driver connected")
+
+
+        self._connect_speech_recognizer()
+        self.get_logger().warn("robohead_controller: speech_recognizer connected")
+
+        # self._connect_usb_cam()
+        self.get_logger().warn("robohead_controller: usb_cam connected")
 
         self.get_logger().warn("robohead_controller: all packages connected")
 
     def get_action_paths(self, actions_match:dict) -> dict:
         # Получаем путь к пакету
-        self.pkg_share = get_package_share_directory('robohead_controller')
-        self.actions_dir = os.path.join(self.pkg_share, '..', 'actions')  # ← папка actions рядом с setup.py
+        pkg_share = get_package_share_directory('robohead_controller')
+        self.actions_dir = os.path.join(pkg_share, 'actions')  # ← папка actions рядом с setup.py
 
         # Загружаем маппинг
         # self.actions_match = self.get_parameter('robohead_controller_actions_match').value
 
         # Создаём словарь: имя действия -> полный путь к action.py
         action_paths = {}
-        for cmd_name, folder_name in self.actions_match.items():
+        for cmd_name, folder_name in actions_match.items():
             action_path = os.path.join(self.actions_dir, folder_name, 'action.py')
             if not os.path.exists(action_path):
                 self.get_logger().error(f"Action file not found: {action_path}")
@@ -75,6 +97,7 @@ class RoboheadController(Node):
 
     def _connect_media_driver(self):
         # Получаем параметры
+        self.declare_parameter('~/media_driver/play_media', "~/media_driver/play_media")
         service_name_play_media = self.get_parameter('~/media_driver/play_media').value
         # topic_name = self.get_parameter('~display_driver/topic_PlayMedia_name').value
         # touchscreen_topic = self.get_parameter('~display_driver/topic_touchscreen_name').value
@@ -89,16 +112,20 @@ class RoboheadController(Node):
 
         # Ждем сервиса
         while not self.media_driver_srv_play_media.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Service %s not available, waiting...' % service_name)
+            self.get_logger().info('Service %s not available, waiting...' % service_name_play_media)
 
         # Запускаем начальный медиафайл
         msg = PlayMedia.Request()
-        msg.path_to_media_file = '/home/pi/robohead_ws/src/robohead/robohead_controller/scripts/loading_splash.mp4'
+        msg.path_to_media_file = '/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/loading_splash.mp4'
         msg.is_block = False
-        msg.is_cycle = True
+        msg.is_cycle = False
+        self.get_logger().info('Service CALL START' )
         response: PlayMedia.Response = self.media_driver_srv_play_media.call(msg)
+        self.get_logger().info('Service CALL END' )
+
 
     def _connect_ears_driver(self):
+        self.declare_parameter('~/ears_driver/srv_ears_set_angle_name')
         service_name = self.get_parameter('~/ears_driver/srv_ears_set_angle_name').value
         self.ears_driver_srv_ears_set_angle = self.create_client(Move, service_name)
 
@@ -107,28 +134,17 @@ class RoboheadController(Node):
         self.get_logger().info("Ears driver connected")
 
     def _connect_neck_driver(self):
+        self.declare_parameter('~neck_driver/srv_neck_set_angle_name')
         service_name = self.get_parameter('~neck_driver/srv_neck_set_angle_name').value
         self.neck_driver_srv_neck_set_angle = self.create_client(Move, service_name)
         while not self.neck_driver_srv_neck_set_angle.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Neck service not available, waiting...')
         self.get_logger().info("Neck driver connected")
 
-    # def _connect_speakers_driver(self):
-    #     play_audio_service = self.get_parameter('~speakers_driver/service_PlayAudio_name').value
-    #     get_volume_service = self.get_parameter('~speakers_driver/service_GetVolume_name').value
-    #     set_volume_service = self.get_parameter('~speakers_driver/service_SetVolume_name').value
 
-    #     self.speakers_driver_srv_PlayAudio = self.create_client(PlayAudio, play_audio_service)
-    #     self.speakers_driver_srv_GetVolume = self.create_client(GetVolume, get_volume_service)
-    #     self.speakers_driver_srv_SetVolume = self.create_client(SetVolume, set_volume_service)
-
-    #     for srv in [self.speakers_driver_srv_PlayAudio, self.speakers_driver_srv_GetVolume, self.speakers_driver_srv_SetVolume]:
-    #         while not srv.wait_for_service(timeout_sec=1.0):
-    #             self.get_logger().info('Speaker service not available, waiting...')
-
-    #     self.get_logger().info("Speakers driver connected")
 
     def _connect_sensor_driver(self):
+        self.declare_parameter('~sensor_driver/topic_name')
         topic_name = self.get_parameter('~sensor_driver/topic_name').value
         self.sensor_driver_sub_battery = self.create_subscription(BatteryState, topic_name, self._sensor_driver_battery_callback, 10)
         # Ждем первого сообщения
@@ -141,6 +157,14 @@ class RoboheadController(Node):
 
     def _connect_respeaker_driver(self):
         # Топики аудио
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_main')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_0')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_1')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_2')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_3')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_4')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_5')
+
         topic_name_audio_main = self.get_parameter('~respeaker_driver/ros/topic_name/audio_main').value
         topic_name_audio_channel_0 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_0').value
         topic_name_audio_channel_1 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_1').value
@@ -152,6 +176,12 @@ class RoboheadController(Node):
         # doa_topic = self.get_parameter('~respeaker_driver/ros/topic_doa_angle_name').value
 
         # Сервисы LED
+        self.declare_parameter('~respeaker_driver/ros/service_name/set_brightness')
+        self.declare_parameter('~respeaker_driver/ros/service_name/set_color_all')
+        self.declare_parameter('~respeaker_driver/ros/service_name/set_color_palette')
+        self.declare_parameter('~respeaker_driver/ros/service_name/set_mode')
+        self.declare_parameter('~respeaker_driver/ros/topic_name/set_color_manual')
+
         service_name_set_brightness = self.get_parameter('~respeaker_driver/ros/service_name/set_brightness').value
         service_name_set_color_all = self.get_parameter('~respeaker_driver/ros/service_name/set_color_all').value
         service_name_set_color_palette = self.get_parameter('~respeaker_driver/ros/service_name/set_color_palette').value
@@ -201,6 +231,10 @@ class RoboheadController(Node):
         # self._wait_for_message(AudioData, topic_name_doa, timeout_sec=5.0)
 
     def _connect_speech_recognizer(self):
+        self.declare_parameter('~/speech_recognizer/ros/topic_name/wake_phrases')
+        self.declare_parameter('~/speech_recognizer/ros/topic_name/commands')
+        self.declare_parameter('~/speech_recognizer/ros/service_name/set_mode')
+        
         topic_name_wake_phrases = self.get_parameter('~/speech_recognizer/ros/topic_name/wake_phrases').value
         topic_name_commands = self.get_parameter('~/speech_recognizer/ros/topic_name/commands').value
         service_name_set_mode = self.get_parameter('~/speech_recognizer/ros/service_name/set_mode').value 
@@ -221,6 +255,7 @@ class RoboheadController(Node):
         self.get_logger().info("Voice recognizer connected")
 
     def _connect_usb_cam(self):
+        self.declare_parameter('~/usb_cam/topic_name/image_raw')
         topic_name_image_raw = self.get_parameter('~/usb_cam/topic_name/image_raw').value
         self.usb_cam_sub_image_raw = self.create_subscription(Image, topic_name_image_raw, self._usb_cam_image_raw_callback, 10)
         msg = self._wait_for_message(Image, topic_name_image_raw, timeout_sec=5.0)
@@ -232,7 +267,7 @@ class RoboheadController(Node):
     def _execute_action(self, name:str):
         try:
             action_path = self.action_paths.get(name)
-            if not module_path:
+            if not action_path:
                 self.get_logger().error(f"Action '{name}' not found in actions_paths")
                 return
 
@@ -252,7 +287,7 @@ class RoboheadController(Node):
             # Вызываем действие
             self.get_logger().info(f"Executing action: {name}")
             module.run(self, name)
-            await asyncio.to_thread(module.run, self, name)
+            # await asyncio.to_thread(module.run, self, name)
 
         except Exception as e:
             self.get_logger().error(f"Can't execute command: {name}. Error: {str(e)}")
@@ -383,16 +418,18 @@ def main(args=None):
     node.start()
 
     # Запускаем асинхронный цикл в фоне
-    executor = rclpy.executors.MultiThreadedExecutor()
-    executor.add_node(node)
+    rclpy.spin()
+    rclpy.shutdown()
+    # executor = rclpy.executors.MultiThreadedExecutor()
+    # executor.add_node(node)
 
-    try:
-        executor.spin()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+    # try:
+    #     executor.spin()
+    # except KeyboardInterrupt:
+    #     pass
+    # finally:
+    #     node.destroy_node()
+    #     rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
