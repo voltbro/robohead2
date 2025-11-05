@@ -19,7 +19,7 @@ is_cycle: 0"
 */
 
 /* example usage
-ros2 service call /robohead_controller/media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: ''
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia "path_to_media_file: ''
 path_to_override_audio_file: ''
 is_block: 0
 is_cycle: 0" 

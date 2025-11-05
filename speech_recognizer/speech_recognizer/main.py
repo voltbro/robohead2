@@ -25,7 +25,9 @@ class SpeechRecognizer(Node):
         self.declare_parameter('ros/service_name/set_mode', '~/set_mode')
         self.declare_parameter('ros/topic_name/wake_phrases', '~/wake_phrases')
         self.declare_parameter('ros/topic_name/commands', '~/commands')
-        self.declare_parameter('ros/topic_name/audio_input', '/respeaker_driver/audio/main')
+        # self.declare_parameter('ros/topic_name/audio_input', '/respeaker_driver/audio/main')
+        self.declare_parameter('ros.topic_name.audio_input')
+
 
         model_path = self.get_parameter('model_path').value
 
@@ -34,7 +36,8 @@ class SpeechRecognizer(Node):
         srv_name_set_mode = self.get_parameter("ros/service_name/set_mode").value
         topic_name_wake_phrases = self.get_parameter("ros/topic_name/wake_phrases").value
         topic_name_commands = self.get_parameter("ros/topic_name/commands").value
-        topic_name_audio_input = self.get_parameter("ros/topic_name/audio_input").value
+        topic_name_audio_input = self.get_parameter("ros.topic_name.audio_input").value
+        self.get_logger().info(f"Audio topic: {topic_name_audio_input}")
         sample_rate = self.get_parameter('sample_rate').value
         default_mode = self.get_parameter('default_mode').value
 

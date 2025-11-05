@@ -5,8 +5,14 @@ robohead_controller:
     topic_name_image_raw: "~usb_cam/image_raw"
     actions_match: >
       {
-        "std_wait": "std_wait"
+        "std_wait": "std_wait.action",
+        "слушай робот": "std_attention.action"
       }
+
+# {
+#   "std_wait": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/action.py",
+#   "слушай робот": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_attention/action.py"
+# }
 # {
 #   "wait_action": "std_wait.action",
 #   "low_bat_action": "std_low_bat.action",

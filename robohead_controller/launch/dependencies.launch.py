@@ -77,21 +77,21 @@ def generate_launch_description():
                 ),
 
                 # # === usb_cam ===
-                # Node(
-                #     package='usb_cam',
-                #     executable='usb_cam_node_exe',  # ← стандартное имя в ROS 2 usb_cam
-                #     name='usb_cam',
-                #     output='screen',
-                #     parameters=[{
-                #         # 'video_device': '/dev/video0',
-                #         # 'image_width': 640,
-                #         # 'image_height': 480,
-                #         # 'framerate': 25.0,
-                #         # 'pixel_format': 'mjpeg',
-                #         # 'color_format': 'rgb8',
-                #         # 'io_method': 'mmap'
-                #     }]
-                # ),
+                Node(
+                    package='usb_cam',
+                    executable='usb_cam_node_exe',  # ← стандартное имя в ROS 2 usb_cam
+                    name='usb_cam',
+                    output='screen',
+                    parameters=[{
+                        # 'video_device': '/dev/video0',
+                        # 'image_width': 640,
+                        # 'image_height': 480,
+                        # 'framerate': 25.0,
+                        # 'pixel_format': 'mjpeg',
+                        # 'color_format': 'rgb8',
+                        # 'io_method': 'mmap'
+                    }]
+                ),
 
                 # === respeaker_driver ===
                 Node(
@@ -110,19 +110,19 @@ def generate_launch_description():
 
                 # === speech_recognizer ===
                 # Предполагается, что у вас один узел speech_recognizer с режимами
-                # Node(
-                #     package='speech_recognizer',
-                #     executable='main',
-                #     name='speech_recognizer',
-                #     output='screen',
-                #     parameters=[
-                #         PathJoinSubstitution([
-                #             pkg_robohead_controller,
-                #             'config',
-                #             'speech_recognizer.yaml'  # ← объединённый конфиг
-                #         ])
-                #     ]
-                # ),
+                Node(
+                    package='speech_recognizer',
+                    executable='main',
+                    name='speech_recognizer',
+                    output='screen',
+                    parameters=[
+                        PathJoinSubstitution([
+                            pkg_robohead_controller,
+                            'config',
+                            'speech_recognizer.yaml'  # ← объединённый конфиг
+                        ])
+                    ]
+                ),
             ]
         )
     ])

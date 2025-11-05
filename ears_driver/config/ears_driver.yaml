@@ -4,8 +4,8 @@
     std_left_angle: 0
     std_right_angle: 0
     i2c_address: 64  # 0x40 в десятичной
-    servo_1_channel: 2 # left
-    servo_2_channel: 3 # right
+    servo_1_channel: 7 # left
+    servo_2_channel: 6 # right
     servo_1_coef: 0 # left
     servo_2_coef: 0 # right
     servo_pulse_low: 120
