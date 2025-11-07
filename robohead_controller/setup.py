@@ -37,7 +37,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # (os.path.join('share', package_name, 'launch'), ['launch/speech_recognizer.launch.py']),
         (os.path.join('share', package_name, 'config'), ['config/speech_recognizer.yaml']),
-    ] + action_data_files,
+    ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='pi',
