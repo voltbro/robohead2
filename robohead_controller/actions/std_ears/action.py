@@ -16,8 +16,8 @@ def run(robohead_:RoboheadController, cmd: str, cancel_event: threading.Event, o
     двинуть уши и шею. Прерывается по cancel_event.
     """
     action_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(action_dir, 'greeting.png')
-    audio_path = os.path.join(action_dir, 'greeting.mp3')
+    image_path = os.path.join(action_dir, 'ears.png')
+    audio_path = os.path.join(action_dir, 'ears.mp3')
 
     robohead.get_logger().info(f"[std_greeting] Starting. Media: {image_path}, Audio: {audio_path}")
 
@@ -39,23 +39,67 @@ def step2(future):
     req2 = Move.Request()
     req2.angle_a = -45
     req2.angle_b = 45
-    req2.duration = 1.0
+    req2.duration = 0.4
     req2.is_block = True
 
     future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
     future2.add_done_callback(step3)
 
 def step3(future):
-    req3 = Move.Request()
-    req3.angle_a = -30
-    req3.angle_b = -30
-    req3.duration = 1.0
-    req3.is_block = True
+    # if cancel_event is not None and cancel_event.is_set():
+    req2 = Move.Request()
+    req2.angle_a = 45
+    req2.angle_b = -45
+    req2.duration = 0.4
+    req2.is_block = True
 
-    future3 = robohead.neck_driver_srv_neck_set_angle.call_async(req3)
-    future3.add_done_callback(step4)
+    future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
+    future2.add_done_callback(step4)
 
 def step4(future):
+    # if cancel_event is not None and cancel_event.is_set():
+    req2 = Move.Request()
+    req2.angle_a = -45
+    req2.angle_b = 45
+    req2.duration = 0.4
+    req2.is_block = True
+
+    future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
+    future2.add_done_callback(step5)
+
+def step5(future):
+    # if cancel_event is not None and cancel_event.is_set():
+    req2 = Move.Request()
+    req2.angle_a = 45
+    req2.angle_b = -45
+    req2.duration = 0.4
+    req2.is_block = True
+
+    future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
+    future2.add_done_callback(step6)
+
+def step6(future):
+    # if cancel_event is not None and cancel_event.is_set():
+    req2 = Move.Request()
+    req2.angle_a = -45
+    req2.angle_b = 45
+    req2.duration = 0.4
+    req2.is_block = True
+
+    future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
+    future2.add_done_callback(step7)
+
+# def step7(future):
+#     req3 = Move.Request()
+#     req3.angle_a = -30
+#     req3.angle_b = -30
+#     req3.duration = 1.0
+#     req3.is_block = True
+
+#     future3 = robohead.neck_driver_srv_neck_set_angle.call_async(req3)
+#     future3.add_done_callback(step4)
+
+def step7(future):
     if on_complete:
         try:
             on_complete()

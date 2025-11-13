@@ -1,45 +1,41 @@
-cmake_minimum_required(VERSION 3.8)
-project(media_driver)
+cmake_minimum_required(VERSION 3.10)
+project(media_driver LANGUAGES CXX)
 
-# Требуем C++17
-set(CMAKE_CXX_STANDARD 20)
+# Use C++17
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-find_package(robohead_interfaces REQUIRED)  
+find_package(robohead_interfaces REQUIRED)
 
-find_package(CURL REQUIRED)
+# Find libmpv via pkg-config if available, otherwise try to find library
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+  pkg_check_modules(MPV REQUIRED mpv)
+  include_directories(${MPV_INCLUDE_DIRS})
+  link_directories(${MPV_LIBRARY_DIRS})
+  add_definitions(${MPV_CFLAGS_OTHER})
+  set(MPV_LIBS ${MPV_LIBRARIES})
+else()
+  find_path(MPV_INCLUDE_DIR mpv/client.h)
+  find_library(MPV_LIB mpv)
+  include_directories(${MPV_INCLUDE_DIR})
+  set(MPV_LIBS ${MPV_LIB})
+endif()
 
-
-
-
-# Исполняемый файл
-add_executable(main src/main.cpp)
-
-# Зависимости
-ament_target_dependencies(main
-  rclcpp
-  std_msgs
-  robohead_interfaces
+include_directories(
+  include
 )
-target_link_libraries(main CURL::libcurl)
-# Установка
-install(TARGETS main
+
+add_executable(main src/main.cpp)
+#target_include_directories(main ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(main ${MPV_LIBS})
+ament_target_dependencies(main  rclcpp robohead_interfaces)
+
+install(TARGETS
+  main
   DESTINATION lib/${PROJECT_NAME}
 )
-
-install(DIRECTORY
-  launch
-  config
-  DESTINATION share/${PROJECT_NAME}/
-)
-
 
 ament_package()

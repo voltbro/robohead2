@@ -148,8 +148,8 @@ def run(robohead_:RoboheadController, cmd: str, cancel_event,on_complete_=None):
 def step2(future):
     robohead.get_logger().info(f"[std_attention]. step 2")
     req2 = Move.Request()
-    req2.angle_a = 90
-    req2.angle_b = -90
+    req2.angle_a = 45
+    req2.angle_b = -45
     req2.duration = 1.0
     req2.is_block = True
     future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
