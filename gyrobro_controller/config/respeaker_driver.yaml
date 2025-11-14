@@ -1,0 +1,54 @@
+/**:
+  ros__parameters:
+    usb:
+      vendor_id: 0x2886 # vendor_id производителя usb-устройства
+      product_id: 0x0018 # product_id usb-устройства
+      timeout: 5000 # таймаут при передаче данных с/на ReSpeaker (milliseconds)
+      sleep_reset: 500 # время ожидания для переинициализации usb устройства после reset (milliseconds)
+      sleep_stop: 100 # время ожидания при отключении программы (milliseconds)
+
+    audio: # используется формат pyaudio.paInt16
+      sample_rate: 16000 # частота дискретизации сигнала с микрофона
+      frames_per_buffer: 1024 # количество frame в буффере, то же самое что:chunk, period, framebuffer и т.д.
+      count_of_channels: 6 # количество каналов ReSpeaker (зависит от прошивки, обычно 6)
+      main_channel: 0 # номер "основного" канала (обычно именно он используется другими модулями) - актуально только для 6 каналов (для 1 канала поставить равным 0)
+      
+    ros:
+      topic_name:
+        audio_main: "~/audio/main"
+        audio_channel_0: "~/audio/channel_0"
+        audio_channel_1: "~/audio/channel_1"
+        audio_channel_2: "~/audio/channel_2"
+        audio_channel_3: "~/audio/channel_3"
+        audio_channel_4: "~/audio/channel_4"
+        audio_channel_5: "~/audio/channel_5"
+        doa: "~/doa"
+        set_color_manual: "~/set_color_manual"
+      service_name:
+        set_brightness: "~/set_brightness"
+        set_color_all: "~/set_color_all"
+        set_color_palette: "~/set_color_palette"
+        set_mode: "~/set_mode"
+
+    # led:
+    #   brightness: 10 # 0..31 яркость светодиодного кольца
+
+    #   palette:
+    #     color_a: # цвет светодиода, указывающего направление свечения
+    #       - 255 # R-red
+    #       - 0 # G-green
+    #       - 0 # B-blue
+    #     color_b: # цвет светодиодов заливки
+    #       - 255 # R-red
+    #       - 255 # G-green
+    #       - 255 # B-blue
+    #   mode: 1
+    # # modes: 
+    # # 0 - off
+    # # 1 - trace
+    # # 2 - listen
+    # # 3 - wait
+    # # 4 - speak
+    # # 5 - spin
+
+    doa_yaw_offset: -90 # смещает нулевое положение doa_angle на doa_yaw_offset градусов. Значение >0 - против часовой стрелки, значение <0 - по часовой стрелке

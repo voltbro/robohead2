@@ -1,15 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 project(media_driver LANGUAGES CXX)
 
-# Use C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ROS 2 dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robohead_interfaces REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 
-# Find libmpv via pkg-config if available, otherwise try to find library
+# Find libmpv
 find_package(PkgConfig QUIET)
 if(PKG_CONFIG_FOUND)
   pkg_check_modules(MPV REQUIRED mpv)
@@ -24,14 +27,27 @@ else()
   set(MPV_LIBS ${MPV_LIB})
 endif()
 
+# --- Важно: сюда добавляем include из cv_bridge и OpenCV ---
 include_directories(
   include
+  ${cv_bridge_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
+# --- Исполняемый файл ---
 add_executable(main src/main.cpp)
-#target_include_directories(main ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(main ${MPV_LIBS})
-ament_target_dependencies(main  rclcpp robohead_interfaces)
+
+target_link_libraries(main
+  ${MPV_LIBS}
+  ${OpenCV_LIBS}
+)
+
+ament_target_dependencies(main
+  rclcpp
+  robohead_interfaces
+  sensor_msgs
+  cv_bridge
+)
 
 install(TARGETS
   main

@@ -1,0 +1,17 @@
+/**:
+  ros__parameters:
+    srv_neck_set_angle_name: "~/neck_set_angle"
+    std_vertical_angle: 0
+    std_horizontal_angle: 0
+    i2c_address: 64  # 0x40 в десятичной
+    servo_1_channel: 5
+    servo_2_channel: 4
+    servo_1_coef: 0
+    servo_2_coef: 0
+    servo_pulse_low: 120
+    servo_pulse_high: 550
+    constraints:
+      v_from: -30
+      v_to: 30
+      h_from: -30
+      h_to: 30

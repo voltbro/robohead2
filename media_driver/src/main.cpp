@@ -11,6 +11,11 @@
 #include "robohead_interfaces/srv/play_media.hpp"
 #include "robohead_interfaces/srv/simple_command.hpp"
 
+#include <opencv2/imgcodecs.hpp>
+#include <cv_bridge/cv_bridge.hpp>
+// #include <cv_b>
+#include "sensor_msgs/msg/image.hpp"
+
 using namespace std::chrono_literals;
 using PlayMedia = robohead_interfaces::srv::PlayMedia;
 using SimpleCommand = robohead_interfaces::srv::SimpleCommand;
@@ -82,6 +87,12 @@ public:
     // event thread
     event_thread_ = std::thread(&MediaDriverNode::event_loop, this);
 
+    sub_stream_ = this->create_subscription<sensor_msgs::msg::Image>(
+      "/robohead_controller/media_driver/stream",
+      rclcpp::QoS(1).best_effort(),
+      std::bind(&MediaDriverNode::handle_stream_image, this, std::placeholders::_1)
+    );
+
     RCLCPP_INFO(this->get_logger(), "MediaDriverNode initialized (libmpv)");
   }
 
@@ -109,9 +120,39 @@ private:
   std::atomic<bool> last_file_loaded_{false};
 
 
+
+
   rclcpp::Service<PlayMedia>::SharedPtr srv_play_;
   rclcpp::Service<SimpleCommand>::SharedPtr srv_set_vol_;
   rclcpp::Service<SimpleCommand>::SharedPtr srv_get_vol_;
+
+
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_stream_;
+
+  void handle_stream_image(const sensor_msgs::msg::Image::SharedPtr msg) {
+    std::lock_guard<std::mutex> lk(mtx_);
+
+    try {
+      // 1. Конвертируем ROS Image → OpenCV
+      cv::Mat frame = cv_bridge::toCvCopy(msg, "bgr8")->image;
+
+      // 2. Сохраняем кадр в /dev/shm (в памяти, без диска)
+      std::string tmp_path = "/dev/shm/robohead_stream_frame.ppm"; // PPM — формат без сжатия, mpv читает мгновенно
+      cv::imwrite(tmp_path, frame);
+
+      // 3. Останавливаем текущее воспроизведение
+      const char *stop_cmd[] = {"stop", nullptr};
+      mpv_command(mpv_handle_, stop_cmd);
+
+      // 4. Загружаем новое изображение
+      const char *cmd[] = {"loadfile", tmp_path.c_str(), "replace", nullptr};
+      mpv_command(mpv_handle_, cmd);
+
+      RCLCPP_DEBUG(this->get_logger(), "Updated frame from stream (%dx%d)", frame.cols, frame.rows);
+    } catch (const std::exception &e) {
+      RCLCPP_ERROR(this->get_logger(), "Error in stream callback: %s", e.what());
+    }
+  }
 
   // helper: safely call mpv_command and log error if negative
 int safe_command(const std::vector<const char*> &argv) {
@@ -148,25 +189,6 @@ void event_loop() {
   }
 }
 
-
-  // // apply short fade filter for images (lavfi fade). clears filter after delay
-  // void apply_fade_and_clear(int fade_ms) {
-  //   if (!mpv_handle_) return;
-  //   double fade_s = std::max(0.0, fade_ms / 1000.0);
-  //   std::string filter = std::string("lavfi=[fade=in:st=0:d=") + std::to_string(fade_s) + "]";
-  //   // vf add <filter>
-  //   const char *argv1[] = {"vf", "add", filter.c_str(), nullptr};
-  //   safe_command({argv1[0], argv1[1], argv1[2], nullptr});
-  //   // spawn thread to clear vf after fade+small margin
-  //   std::thread([this, fade_s](){
-  //     std::this_thread::sleep_for(std::chrono::milliseconds(int((fade_s + 0.05) * 1000)));
-  //     const char *argv2[] = {"vf", "clear", nullptr};
-  //     std::lock_guard<std::mutex> lk(mtx_);
-  //     safe_command({argv2[0], argv2[1], nullptr});
-  //   }).detach();
-  // }
-
-  // Try to set property loop-file to "inf" or "no"
   void set_loop(bool inf) {
     if (!mpv_handle_) return;
     const char *argv[] = {"set_property", "loop-file", inf ? "inf" : "no", nullptr};
@@ -186,10 +208,10 @@ void event_loop() {
       } else {
         // fallback: small sleep and continue
       }
-      if (std::chrono::steady_clock::now() - t0 > timeout) {
-        RCLCPP_WARN(this->get_logger(), "wait_until_eof: timeout reached");
-        break;
-      }
+      // if (std::chrono::steady_clock::now() - t0 > timeout) {
+      //   RCLCPP_WARN(this->get_logger(), "wait_until_eof: timeout reached");
+      //   break;
+      // }
       std::this_thread::sleep_for(50ms);
     }
   }
@@ -239,6 +261,12 @@ void event_loop() {
     mpv_set_property_string(mpv_handle_, "pause", "no");
 
     RCLCPP_WARN(this->get_logger(), "[media_driver] displayed: %s, audio: %s", path.c_str(), override_audio.c_str());
+
+    if (request->is_block)
+    {
+      RCLCPP_WARN(this->get_logger(), "[media_driver] blocked, wait eof...");
+      wait_until_eof_or_stop();
+    }
     response->data = 0;
   }
 

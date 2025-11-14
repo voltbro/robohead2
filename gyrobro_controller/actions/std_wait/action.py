@@ -2,11 +2,11 @@
 
 import os
 import rclpy
-from robohead_controller.main import *
+from gyrobro_controller.main import *
 # from typing import TYPE_CHECKING
 
 # if TYPE_CHECKING:
-#     from robohead_controller.types import *
+#     from gyrobro_controller.types import *
 
 # def run(robohead:RoboheadController, cmd: str):
 #     # Получаем путь к текущей папке действия

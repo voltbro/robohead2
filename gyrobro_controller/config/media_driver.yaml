@@ -1,0 +1,8 @@
+/speakers_driver:
+  ros__parameters:
+
+    srv_set_volume_name: "~/set_volume"
+    srv_get_volume_name: "~/get_volume"
+    srv_play_audio_name: "~/play_audio"
+
+    default_volume: 40

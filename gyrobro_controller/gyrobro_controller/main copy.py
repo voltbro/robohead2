@@ -81,7 +81,7 @@ class RoboheadController(Node):
         self._connect_speech_recognizer()
         self.get_logger().warn("robohead_controller: speech_recognizer connected")
 
-        self._connect_usb_cam()
+        # self._connect_usb_cam()
         self.get_logger().warn("robohead_controller: usb_cam connected")
 
         self.get_logger().warn("robohead_controller: all packages connected")
@@ -107,8 +107,6 @@ class RoboheadController(Node):
     def _connect_media_driver(self):
         # Получаем параметры
         self.declare_parameter('~/media_driver/play_media', "~/media_driver/play_media")
-        # self.declare_parameter('~display_driver/topic_PlayMedia_name', "~/media_driver/play_media")
-
         service_name_play_media = self.get_parameter('~/media_driver/play_media').value
         # topic_name = self.get_parameter('~display_driver/topic_PlayMedia_name').value
         # touchscreen_topic = self.get_parameter('~display_driver/topic_touchscreen_name').value
@@ -116,7 +114,7 @@ class RoboheadController(Node):
         # Создаем клиент и публикатор
         self.media_driver_srv_play_media = self.create_client(PlayMedia, service_name_play_media)
 
-        self.media_driver_pub_stream = self.create_publisher(Image, "/robohead_controller/media_driver/stream", 1)
+        # self.display_driver_pub_PlayMedia = self.create_publisher(Image, topic_name, 1)
         # self.display_driver_sub_touchscreen = self.create_subscription(
             # Pose2D, touchscreen_topic, self._display_driver_touchsreen_callback, 10
         # )
@@ -329,12 +327,92 @@ class RoboheadController(Node):
                 args=(self, name, self._current_action_cancel, on_complete),
                 daemon=True
             )
-            self.get_logger().error(f"RC: Action {name} start")
             thread.start()
 
         except Exception as e:
             self.get_logger().error(f"Failed to start action {name}: {e}")
 
+    # def _execute_action(self, name:str):
+    #     try:
+    #         importlib.invalidate_caches()
+    #         action_path = self.action_paths.get(name)
+    #         if not action_path:
+    #             self.get_logger().error(f"Action '{name}' not found in actions_paths")
+    #             return
+
+    #         # spec = importlib.util.spec_from_file_location(name, action_path)
+    #         # if spec is None:
+    #         #     self.get_logger().error(f"Could not load module spec for {name}")
+    #         #     return
+
+    #         # module = importlib.util.module_from_spec(spec)
+    #         # spec.loader.exec_module(module)
+
+    #         # # Проверяем наличие функции run
+    #         # if not hasattr(module, 'run'):
+    #         #     self.get_logger().error(f"Module {name} does not have a 'run' function")
+    #         #     return
+    #         action = importlib.import_module(name=action_path, package=None)
+    #         action = importlib.reload(action)
+
+    #         # Вызываем действие
+    #         self.get_logger().info(f"Executing action: {name}")
+    #         action.run(self, name)
+    #         self.get_logger().info(f"finish Executing action: {name}")
+    #         # await asyncio.to_thread(module.run, self, name)
+
+    #     except Exception as e:
+    #         self.get_logger().error(f"Can't execute command: {name}. Error: {str(e)}")
+
+
+    # async def _execute_action(self, name: str):
+    #     """Асинхронное выполнение действия"""
+    #     try:
+    #         module_path = self.actions_match.get(name)
+    #         if not module_path:
+    #             self.get_logger().error(f"Action '{name}' not found in actions_match")
+    #             return
+
+    #         spec = importlib.util.spec_from_file_location(name, module_path)
+    #         if spec is None:
+    #             self.get_logger().error(f"Could not load module spec for {name}")
+    #             return
+
+    #         module = importlib.util.module_from_spec(spec)
+    #         spec.loader.exec_module(module)
+
+    #         # Проверяем наличие функции run
+    #         if not hasattr(module, 'run'):
+    #             self.get_logger().error(f"Module {name} does not have a 'run' function")
+    #             return
+
+    #         # Вызываем действие
+    #         self.get_logger().info(f"Executing action: {name}")
+    #         await asyncio.to_thread(module.run, self, name)
+
+    #     except Exception as e:
+    #         self.get_logger().error(f"Can't execute command: {name}. Error: {str(e)}")
+
+    # def _wait_for_message(self, msg_type, topic, timeout_sec=5.0):
+    #     """Ждет первого сообщения на топике"""
+    #     future = asyncio.Future()
+    #     subscription = self.create_subscription(
+    #         msg_type, topic, lambda msg: future.set_result(msg), 1
+    #     )
+
+    #     try:
+    #         loop = asyncio.get_event_loop()
+    #         result = loop.run_until_complete(asyncio.wait_for(future, timeout_sec))
+    #         subscription.destroy()
+    #         return result
+    #     except asyncio.TimeoutError:
+    #         subscription.destroy()
+    #         return None
+
+    # --- Callbacks ---
+
+    # def _media_driver_touchsreen_callback(self, msg):
+        # self.display_driver_touchscreen_xy = (msg.x, msg.y)
 
     def _sensor_driver_battery_callback(self, msg:BatteryState):
         self.sensor_driver_battery_voltage = msg.voltage
@@ -378,7 +456,7 @@ class RoboheadController(Node):
         future = self.speech_recognizer_srv_set_mode.call_async(new_msg)
         # rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
         # asyncio.create_task(self._execute_action(msg.data)
-        self._execute_action(msg.data, None)
+        self._execute_action(msg.data, self._on_action_complete)
 
     def _speech_recognizer_commands_callback(self, msg:String):
         self.get_logger().error(f"callback command: {msg.data}")
@@ -410,8 +488,7 @@ class RoboheadController(Node):
 
         script_path = os.path.dirname(os.path.abspath(__file__)) + '/'
         msg = PlayMedia.Request()
-        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/wait.png"
-        msg.path_to_override_audio_file = "/home/pi/file.mp3"
+        msg.path_to_media_file = "/home/pi/file.mp3"
         msg.is_block = True
         msg.is_cycle = False
         future = self.media_driver_srv_play_media.call_async(msg)

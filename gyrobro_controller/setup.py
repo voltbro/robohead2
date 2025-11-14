@@ -2,7 +2,7 @@ import os
 from glob import glob
 from setuptools import find_packages, setup
 
-package_name = 'robohead_controller'
+package_name = 'gyrobro_controller'
 
 # Путь к директории setup.py
 here = os.path.abspath(os.path.dirname(__file__))
@@ -35,8 +35,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), ['launch/dependencies.launch.py','launch/robohead_controller.launch.py',]),
-        (os.path.join('share', package_name, 'config'), ['config/robohead_controller.yaml','config/speech_recognizer.yaml',
+        (os.path.join('share', package_name, 'launch'), ['launch/dependencies.launch.py','launch/gyrobro_controller.launch.py',]),
+        (os.path.join('share', package_name, 'config'), ['config/gyrobro_controller.yaml','config/speech_recognizer.yaml',
                                                          'config/ears_driver.yaml','config/media_driver.yaml',
                                                          'config/neck_driver.yaml','config/respeaker_driver.yaml',
                                                          'config/sensor_driver.yaml']),
@@ -46,12 +46,12 @@ setup(
     zip_safe=True,
     maintainer='pi',
     maintainer_email='kolesnikovpi2005@mail.ru',
-    description='Robohead voice-controlled robot controller',
+    description='gyrobro_controller voice-controlled robot controller',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'main = robohead_controller.main:main',
+            'main = gyrobro_controller.main:main',
         ],
     },
 )

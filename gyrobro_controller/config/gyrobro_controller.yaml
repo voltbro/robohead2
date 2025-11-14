@@ -7,11 +7,11 @@ robohead_controller:
 
 
       {
-        "std_wait": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/action.py",
-        "слушай робот": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_attention/action.py",
-        "поздоровайся": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_greeting/action.py",
-        "покажи уши": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_ears/action.py",
-        "следи за шариком" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_ball_tracker/action.py"
+        "std_wait": "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_wait/action.py",
+        "слушай робот": "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_attention/action.py",
+        "поздоровайся": "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_greeting/action.py",
+        "покажи уши": "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ears/action.py",
+        "следи за шариком" : "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/action.py"
       }
 # {
 #   "std_wait": "std_wait.action",

@@ -8,6 +8,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from robohead_interfaces.msg import AudioData, ColorArray
 from robohead_interfaces.srv import Color, ColorPalette, Move, PlayMedia, SimpleCommand
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import BatteryState
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
@@ -20,7 +21,7 @@ import time
 
 # PACKAGE_SOURCE_DIR = os.path.abspath(os.path.dirname(__file__))
 # --- Динамические импорты будут ниже ---
-sys.path.append('/home/pi/robohead_ws/src/robohead2/robohead_controller/actions')
+sys.path.append('/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions')
 
 class RoboheadController(Node):
 
@@ -41,6 +42,8 @@ class RoboheadController(Node):
         self.low_voltage_hysteresis = self.get_parameter('low_voltage_hysteresis').value
         self.is_allow_work = True
         actions_str:str = self.get_parameter('actions_match').value
+        self.get_logger().warn(f"---------------------------------- action_match: \n{actions_str}")
+        
         self.action_paths:dict = json.loads(actions_str)
         # print("Action_math UUUUUUUUU: ",actions_match)
 
@@ -54,45 +57,47 @@ class RoboheadController(Node):
         self.respeaker_driver_doa_angle = 0
         self.respeaker_driver_msg_audio_main = None
         self.usb_cam_image_raw = None
-
+        self.gyrobro_pub_cmd_vel = self.create_publisher(Twist, "/cmd_vel_external", 1)
 
         # self._init_timer = self.create_timer(0.01, self.connect)
 
     def connect(self):
         # self._init_timer.cancel()
           # --- Подключение к драйверам ---
-        self.get_logger().info("robohead_controller: start_connect")
+        self.get_logger().info("gyrobro_controller: start_connect")
         self._connect_media_driver()
-        self.get_logger().info("robohead_controller: media_driver connected")
+        self.get_logger().info("gyrobro_controller: media_driver connected")
 
         self._connect_ears_driver()
-        self.get_logger().warn("robohead_controller: ears_driver connected")
+        self.get_logger().warn("gyrobro_controller: ears_driver connected")
 
         self._connect_neck_driver()
-        self.get_logger().warn("robohead_controller: neck_driver connected")
+        self.get_logger().warn("gyrobro_controller: neck_driver connected")
 
         self._connect_sensor_driver()
-        self.get_logger().warn("robohead_controller: sensor_driver connected")
+        self.get_logger().warn("gyrobro_controller: sensor_driver connected")
 
         self._connect_respeaker_driver()
-        self.get_logger().warn("robohead_controller: respeaker_driver connected")
+        self.get_logger().warn("gyrobro_controller: respeaker_driver connected")
 
 
         self._connect_speech_recognizer()
-        self.get_logger().warn("robohead_controller: speech_recognizer connected")
+        self.get_logger().warn("gyrobro_controller: speech_recognizer connected")
 
         self._connect_usb_cam()
-        self.get_logger().warn("robohead_controller: usb_cam connected")
+        self.get_logger().warn("gyrobro_controller: usb_cam connected")
 
-        self.get_logger().warn("robohead_controller: all packages connected")
+
+
+        self.get_logger().warn("gyrobro_controller: all packages connected")
 
     # def get_action_paths(self, actions_match:dict) -> dict:
     #     # Получаем путь к пакету
-    #     pkg_share = get_package_share_directory('robohead_controller')
+    #     pkg_share = get_package_share_directory('gyrobro_controller')
     #     self.actions_dir = os.path.join(pkg_share, 'actions')  # ← папка actions рядом с setup.py
 
     #     # Загружаем маппинг
-    #     # self.actions_match = self.get_parameter('robohead_controller_actions_match').value
+    #     # self.actions_match = self.get_parameter('gyrobro_controller_actions_match').value
 
     #     # Создаём словарь: имя действия -> полный путь к action.py
     #     action_paths = {}
@@ -103,6 +108,9 @@ class RoboheadController(Node):
     #             continue
     #         action_paths[cmd_name] = action_path
     #     return action_paths
+
+    
+  
 
     def _connect_media_driver(self):
         # Получаем параметры
@@ -127,7 +135,7 @@ class RoboheadController(Node):
 
         # Запускаем начальный медиафайл
         msg = PlayMedia.Request()
-        msg.path_to_media_file = '/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/loading_splash.mp4'
+        msg.path_to_media_file = '/home/pi/robohead_ws/src/robohead2/gyrobro_controller/gyrobro_controller/loading_splash.mp4'
         msg.is_block = False
         msg.is_cycle = True
         self.get_logger().info('Service CALL START' )
@@ -410,7 +418,7 @@ class RoboheadController(Node):
 
         script_path = os.path.dirname(os.path.abspath(__file__)) + '/'
         msg = PlayMedia.Request()
-        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/wait.png"
+        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_wait/wait.png"
         msg.path_to_override_audio_file = "/home/pi/file.mp3"
         msg.is_block = True
         msg.is_cycle = False
