@@ -425,6 +425,14 @@ class RoboheadController(Node):
         future = self.media_driver_srv_play_media.call_async(msg)
 
         rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
+
+        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_wait/wait_silence.mp4"
+        msg.path_to_override_audio_file = ""
+        msg.is_block = False
+        msg.is_cycle = True
+        future = self.media_driver_srv_play_media.call_async(msg)
+
+        rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
         response = future.result()
 
         # self._execute_action("std_wait")

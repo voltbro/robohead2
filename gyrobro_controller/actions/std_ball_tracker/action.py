@@ -61,7 +61,16 @@ def run(robohead_: RoboheadController, cmd: str, cancel_event: threading.Event, 
     # --- Проиграть звук калибровки ---
     if cancel_event.is_set():
         return
-    play_audio("/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/calibrate_voice.mp3", block=True)
+
+    req = PlayMedia.Request()
+    req.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/video.mp4"
+    req.path_to_override_audio_file = "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/calibrate_voice.mp3"
+    req.is_block = True
+    req.is_cycle = False
+    future = robohead.media_driver_srv_play_media.call_async(req)
+    while not future.done():
+        time.sleep(0.1)
+
     robohead.get_logger().info("[ball_tracker]  audio_played")
 
     # --- Калибровка ---
@@ -101,7 +110,15 @@ def run(robohead_: RoboheadController, cmd: str, cancel_event: threading.Event, 
 
     # --- Проиграть финальный звук ---
     time.sleep(0.2)
-    play_audio("/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/finish_voice.mp3", block=True)
+
+    req = PlayMedia.Request()
+    req.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/video.mp4"
+    req.path_to_override_audio_file = "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/actions/std_ball_tracker/finish_voice.mp3"
+    req.is_block = True
+    req.is_cycle = False
+    future = robohead.media_driver_srv_play_media.call_async(req)
+    while not future.done():
+        time.sleep(0.1)
 
     if on_complete:
         try:
@@ -111,16 +128,6 @@ def run(robohead_: RoboheadController, cmd: str, cancel_event: threading.Event, 
 
 
 # === Вспомогательные функции ===
-
-def play_audio(path, block=True):
-    req = PlayMedia.Request()
-    req.path_to_media_file = path  # без изображения
-    # req.path_to_override_audio_file = path
-    req.is_block = block
-    req.is_cycle = False
-    future = robohead.media_driver_srv_play_media.call_async(req)
-    while not future.done():
-        time.sleep(0.1)
 
 
 def move_ears(left_angle, right_angle, duration):

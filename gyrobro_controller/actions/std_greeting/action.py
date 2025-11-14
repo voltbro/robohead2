@@ -16,7 +16,7 @@ def run(robohead_:RoboheadController, cmd: str, cancel_event: threading.Event, o
     двинуть уши и шею. Прерывается по cancel_event.
     """
     action_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(action_dir, 'greeting.png')
+    image_path = os.path.join(action_dir, 'greeting.mp4')
     audio_path = os.path.join(action_dir, 'greeting.mp3')
 
     robohead.get_logger().info(f"[std_greeting] Starting. Media: {image_path}, Audio: {audio_path}")

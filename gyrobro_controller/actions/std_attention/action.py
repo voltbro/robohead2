@@ -131,7 +131,7 @@ def run(robohead_:RoboheadController, cmd: str, cancel_event,on_complete_=None):
     #     return
 
     action_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(action_dir, 'attention.png')
+    image_path = os.path.join(action_dir, 'attention.mp4')
     audio_path = os.path.join(action_dir, 'attention.mp3')
 
     robohead.get_logger().info(f"[std_attention] Starting. Media: {image_path}, Audio: {audio_path}")
@@ -140,7 +140,7 @@ def run(robohead_:RoboheadController, cmd: str, cancel_event,on_complete_=None):
     req1.path_to_media_file = image_path
     req1.path_to_override_audio_file = audio_path
     req1.is_block = False
-    req1.is_cycle = False
+    req1.is_cycle = True
 
     future = robohead.media_driver_srv_play_media.call_async(req1)
     future.add_done_callback(step2)

@@ -245,7 +245,7 @@ void event_loop() {
 
 
 
-
+      mpv_set_option_string(mpv_handle_, "loop-file", request->is_cycle ? "inf" : "no");
         const char* cmd[] = {"loadfile", path.c_str(), "replace", nullptr};
     mpv_command(mpv_handle_, cmd);
     if (!override_audio.empty()) {
