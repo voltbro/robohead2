@@ -174,7 +174,9 @@ def neck_mover(cancel_event: threading.Event):
             req.angle_b = cur_horizontal_angle # horizontal
             req.duration = neck_mover_step_duration
             req.is_block = False
-            future = robohead.ears_driver_srv_ears_set_angle.call_async(req)
+            # future = robohead.ears_driver_srv_ears_set_angle.call_async(req)
+            future = robohead.neck_driver_srv_neck_set_angle.call_async(req)
+
             while not future.done():
                 time.sleep(0.1)
 
