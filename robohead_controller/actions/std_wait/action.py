@@ -124,15 +124,16 @@ def run(robohead_:RoboheadController, cmd: str, cancel_event:threading.Event, on
     """
 
     action_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(action_dir, 'wait.png')
+    image_path = os.path.join(action_dir, 'wait_silence.mp4')
 
     robohead.get_logger().info(f"[std_wait] Displaying: {image_path}")
 
     # Формируем запрос
     req = PlayMedia.Request()
     req.path_to_media_file = image_path
+    # req.path_to_override_audio_file = "/home/pi/Nonefile.mp3"
     req.is_block = False
-    req.is_cycle = False
+    req.is_cycle = True
 
     # Отправляем асинхронно
     future = robohead.media_driver_srv_play_media.call_async(req)
