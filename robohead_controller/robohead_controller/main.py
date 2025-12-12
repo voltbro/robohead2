@@ -411,7 +411,7 @@ class RoboheadController(Node):
         script_path = os.path.dirname(os.path.abspath(__file__)) + '/'
         msg = PlayMedia.Request()
         msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/wait.png"
-        msg.path_to_override_audio_file = "/home/pi/file.mp3"
+        msg.path_to_override_audio_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/start.mp3"
         msg.is_block = True
         msg.is_cycle = False
         future = self.media_driver_srv_play_media.call_async(msg)
