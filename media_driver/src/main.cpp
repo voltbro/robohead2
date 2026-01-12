@@ -43,7 +43,8 @@ public:
       RCLCPP_FATAL(this->get_logger(), "mpv_create() failed");
       throw std::runtime_error("mpv_create failed");
     }
-
+    
+    
     mpv_set_option_string(mpv_handle_, "vo", "drm"); // or gpu
 
     mpv_set_option_string(mpv_handle_, "ao", "alsa");        // или "pcm", "null"
@@ -55,6 +56,9 @@ public:
     mpv_set_option_string(mpv_handle_, "force-window", "yes");
     mpv_set_option_string(mpv_handle_, "background", "black");
     mpv_set_option_string(mpv_handle_, "video-rotate", "270");
+    
+    double v = 40.0;
+    mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_DOUBLE, &v);
 
 
     // if (fullscreen_) {
