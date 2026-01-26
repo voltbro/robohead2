@@ -125,6 +125,7 @@ class SpeechRecognizer(Node):
                 cmd_msg = String()
                 cmd_msg.data = "std_wait"
                 self.cmd_pub.publish(cmd_msg)
+                self.last_grammar_result_time = self.get_clock().now()
 
         elif self.current_mode == 3:  # Free
             if self.free_rec.AcceptWaveform(data):

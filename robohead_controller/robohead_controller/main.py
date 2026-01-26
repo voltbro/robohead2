@@ -49,8 +49,8 @@ class RoboheadController(Node):
 
         # Инициализация переменных состояния
         self.display_driver_touchscreen_xy = (0.0, 0.0)
-        self.sensor_driver_bat_voltage = 8.42
-        self.sensor_driver_bat_current = -2.1
+        self.sensor_driver_battery_voltage = 8.42
+        self.sensor_driver_battery_current = -2.1
         self.respeaker_driver_doa_angle = 0
         self.respeaker_driver_msg_audio_main = None
         self.usb_cam_image_raw = None
@@ -161,8 +161,8 @@ class RoboheadController(Node):
 
 
     def _connect_sensor_driver(self):
-        self.declare_parameter('~sensor_driver/topic_name','/robohead_controller/sensor_driver/battery')
-        topic_name = self.get_parameter('~sensor_driver/topic_name').value
+        self.declare_parameter('sensor_driver/topic_name','/robohead_controller/sensor_driver/battery')
+        topic_name = self.get_parameter('sensor_driver/topic_name').value
         self.sensor_driver_sub_battery = self.create_subscription(BatteryState, topic_name, self._sensor_driver_battery_callback, 10)
         # Ждем первого сообщения
         self.get_logger().info("Waiting for first battery message...")
@@ -338,15 +338,19 @@ class RoboheadController(Node):
 
 
     def _sensor_driver_battery_callback(self, msg:BatteryState):
-        self.sensor_driver_battery_voltage = msg.voltage
-        self.sensor_driver_battery_current = msg.current
-        if self.sensor_driver_bat_voltage < self.low_voltage_threshold:
-            self.is_allow_work = False
+        self.sensor_driver_battery_voltage = float(msg.voltage)
+        self.sensor_driver_battery_current = float(msg.current)
+        self.get_logger().info(f"voltage: {self.sensor_driver_battery_voltage}, thresh: {self.low_voltage_threshold}")
+        if self.sensor_driver_battery_voltage < self.low_voltage_threshold and self.is_allow_work:
             # asyncio.create_task(self._execute_action('low_bat_action'))
-            self._execute_action('low_bat_action')
+            self.is_allow_work = False
+            self._execute_action('std_low_bat')
+            self.get_logger().info(f"LOW_BAT")
+
+            
             self.get_logger().error("Low voltage on battery!")
 
-        elif not self.is_allow_work and self.sensor_driver_bat_voltage >= self.low_voltage_threshold + self.low_voltage_hysteresis:
+        elif not self.is_allow_work and self.sensor_driver_battery_voltage >= (self.low_voltage_threshold + self.low_voltage_hysteresis):
             self.is_allow_work = True
             # asyncio.create_task(self._execute_action('wait_action'))
             self._execute_action('std_wait')
@@ -437,8 +441,7 @@ class RoboheadController(Node):
         new_msg.data = 1 # on kws
         future = self.speech_recognizer_srv_set_mode.call_async(new_msg)
         rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
-
-
+        self.is_allow_work = True
 
 def main(args=None):
     rclpy.init(args=args)
