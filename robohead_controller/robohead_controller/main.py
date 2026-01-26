@@ -340,7 +340,7 @@ class RoboheadController(Node):
     def _sensor_driver_battery_callback(self, msg:BatteryState):
         self.sensor_driver_battery_voltage = float(msg.voltage)
         self.sensor_driver_battery_current = float(msg.current)
-        self.get_logger().info(f"voltage: {self.sensor_driver_battery_voltage}, thresh: {self.low_voltage_threshold}")
+        # self.get_logger().info(f"voltage: {self.sensor_driver_battery_voltage}, thresh: {self.low_voltage_threshold}")
         if self.sensor_driver_battery_voltage < self.low_voltage_threshold and self.is_allow_work:
             # asyncio.create_task(self._execute_action('low_bat_action'))
             self.is_allow_work = False
