@@ -42,8 +42,9 @@ class SpeechRecognizer(Node):
         default_mode = self.get_parameter('default_mode').value
 
 
-
-
+        self.declare_parameter('grammar_timeout', 4.0)  # например, 5 секунд
+        self.grammar_timeout_duration = self.get_parameter('grammar_timeout').value
+        self.last_grammar_result_time = None
 
         if not os.path.exists(model_path):
             self.get_logger().error(f"Model not found at {model_path}")
@@ -79,6 +80,8 @@ class SpeechRecognizer(Node):
     def set_mode_callback(self, request, response):
         mode = request.data
         if mode in (0, 1, 2, 3):
+            self.last_grammar_result_time = self.get_clock().now()
+
             self.current_mode = mode
             response.data = mode
             mode_names = {0:"Off", 1: "KWS", 2: "Grammar", 3: "Free"}
@@ -118,6 +121,10 @@ class SpeechRecognizer(Node):
                     cmd_msg.data = text
                     self.cmd_pub.publish(cmd_msg)
                     self.get_logger().info(f"Command: '{text}'")
+            elif (self.get_clock().now() - self.last_grammar_result_time ).nanoseconds / 1e9 > self.grammar_timeout_duration:
+                cmd_msg = String()
+                cmd_msg.data = "std_wait"
+                self.cmd_pub.publish(cmd_msg)
 
         elif self.current_mode == 3:  # Free
             if self.free_rec.AcceptWaveform(data):

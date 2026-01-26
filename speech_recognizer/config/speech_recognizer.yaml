@@ -1,5 +1,6 @@
 /speech_recognizer:
   ros__parameters:
+    grammar_timeout: 4.0
     default_mode: 0
     # 0 off recognition
     # 1 key words recognition

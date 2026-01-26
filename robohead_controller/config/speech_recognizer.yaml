@@ -1,5 +1,6 @@
 /**:
   ros__parameters:
+    grammar_timeout: 5.0
     default_mode: 0
     # 0 off recognition
     # 1 key words recognition
@@ -14,6 +15,9 @@
       - 'покажи уши'
       - 'поздоровайся'
       - 'следи за шариком'
+      - 'сделай фото'
+      - 'покажи левое ухо'
+      - 'покажи правое ухо'
 
     ros:
       service_name:

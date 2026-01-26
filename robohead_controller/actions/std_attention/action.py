@@ -151,14 +151,14 @@ def step2(future):
     req2.angle_a = 45
     req2.angle_b = -45
     req2.duration = 1.0
-    req2.is_block = True
+    req2.is_block = False
     future2 = robohead.ears_driver_srv_ears_set_angle.call_async(req2)
     future2.add_done_callback(step3)
 def step3(future):
     robohead.get_logger().info(f"[std_attention]. step 2")
     req2 = Move.Request()
     req2.angle_a = 30
-    req2.angle_b = 0
+    req2.angle_b = -max(min(robohead.respeaker_driver_doa_angle, 30), -30)
     req2.duration = 1.0
     req2.is_block = True
     future2 = robohead.neck_driver_srv_neck_set_angle.call_async(req2)

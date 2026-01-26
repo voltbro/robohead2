@@ -9,7 +9,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from robohead_interfaces.msg import AudioData, ColorArray
 from robohead_interfaces.srv import Color, ColorPalette, Move, PlayMedia, SimpleCommand
 from sensor_msgs.msg import BatteryState
-from std_msgs.msg import String
+from std_msgs.msg import String, Int32
 from sensor_msgs.msg import Image
 import json
 import sys
@@ -181,6 +181,7 @@ class RoboheadController(Node):
         self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_3')
         self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_4')
         self.declare_parameter('~respeaker_driver/ros/topic_name/audio_channel_5')
+        self.declare_parameter('respeaker_driver/ros/topic_name/doa')
 
         topic_name_audio_main = self.get_parameter('~respeaker_driver/ros/topic_name/audio_main').value
         topic_name_audio_channel_0 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_0').value
@@ -189,8 +190,8 @@ class RoboheadController(Node):
         topic_name_audio_channel_3 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_3').value
         topic_name_audio_channel_4 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_4').value
         topic_name_audio_channel_5 = self.get_parameter('~respeaker_driver/ros/topic_name/audio_channel_5').value
-
-        # doa_topic = self.get_parameter('~respeaker_driver/ros/topic_doa_angle_name').value
+        # doa_topic = self.get_parameter('respeaker_driver/ros/topic_name/doa').value
+        doa_topic = '/robohead_controller/respeaker_driver/doa'
 
         # Сервисы LED
         self.declare_parameter('~respeaker_driver/ros/service_name/set_brightness')
@@ -215,7 +216,7 @@ class RoboheadController(Node):
         # self.respeaker_driver_sub_audio_channel_5 = self.create_subscription(AudioData, topic_name_audio_channel_5, self._respeaker_driver_audio_channel_5_callback, 10)
 
         # ... подписки на другие каналы
-        # self.respeaker_driver_sub_doa_angle = self.create_subscription(Int16, doa_topic, self._respeaker_driver_doa_angle_callback, 10)
+        self.respeaker_driver_sub_doa_angle = self.create_subscription(Int32, doa_topic, self._respeaker_driver_doa_angle_callback, 10)
 
         # Публикатор
         # self.respeaker_driver_pub_set_color_manual = self.create_publisher(ColorArray, topic_name_set_color_manual, 1)
@@ -366,6 +367,8 @@ class RoboheadController(Node):
         self.respeaker_driver_msg_audio_channel_4 = msg
     def _respeaker_driver_audio_channel_5_callback(self, msg):
         self.respeaker_driver_msg_audio_channel_5 = msg
+    def _respeaker_driver_doa_angle_callback(self, msg:Int32):
+        self.respeaker_driver_doa_angle = msg.data
     # ... остальные callbacks (doa)
 
     def _speech_recognizer_wake_phrases_callback(self, msg:String):
@@ -410,10 +413,19 @@ class RoboheadController(Node):
 
         script_path = os.path.dirname(os.path.abspath(__file__)) + '/'
         msg = PlayMedia.Request()
-        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/wait.png"
-        msg.path_to_override_audio_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/start.mp3"
+        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/hello.mp4"
+        # msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/wait.png"
+        # msg.path_to_override_audio_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/start.mp3"
         msg.is_block = True
         msg.is_cycle = False
+        future = self.media_driver_srv_play_media.call_async(msg)
+
+        rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
+        response = future.result()
+
+        msg.path_to_media_file = "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/wait_silence.mp4"
+        msg.is_block = False
+        msg.is_cycle = True
         future = self.media_driver_srv_play_media.call_async(msg)
 
         rclpy.spin_until_future_complete(self, future, timeout_sec=3.0)
