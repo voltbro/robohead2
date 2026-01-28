@@ -117,10 +117,12 @@ class SpeechRecognizer(Node):
                 res = json.loads(self.grammar_rec.Result())
                 text = res.get('text', '').strip()
                 if text:
-                    cmd_msg = String()
-                    cmd_msg.data = text
-                    self.cmd_pub.publish(cmd_msg)
-                    self.get_logger().info(f"Command: '{text}'")
+                    for phrase in self.commands:
+                        if phrase in text:
+                            cmd_msg = String()
+                            cmd_msg.data = phrase
+                            self.cmd_pub.publish(cmd_msg)
+                            self.get_logger().info(f"Command: '{phrase}'")
             elif (self.get_clock().now() - self.last_grammar_result_time ).nanoseconds / 1e9 > self.grammar_timeout_duration:
                 cmd_msg = String()
                 cmd_msg.data = "std_wait"
