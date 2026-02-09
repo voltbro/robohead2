@@ -8,11 +8,10 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='sensor_driver',
-            executable='main',
+            executable='sensor_driver_node',
             name='sensor_driver',
             output='screen',
-            parameters=[PathJoinSubstitution([
-                FindPackageShare('sensor_driver'), 'config', 'sensor_driver.yaml'])
-            ]
+            namespace='sensor_driver',
+            parameters=[ PathJoinSubstitution([ FindPackageShare('sensor_driver'), 'config', 'sensor_driver.yaml' ]) ]
         )
     ])
