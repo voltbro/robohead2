@@ -8,9 +8,10 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='ears_driver',
-            executable='main',
+            executable='ears_driver_node',
             name='ears_driver',
             output='screen',
+            namespace='ears_driver',
             parameters=[PathJoinSubstitution([
                 FindPackageShare('ears_driver'), 'config', 'ears_driver.yaml'])
             ]
