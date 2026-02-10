@@ -1,3 +1,14 @@
+/*
+ros2 service call /neck_driver/neck_set_angle robohead_interfaces/srv/Move "angle_a: 0
+angle_b: 0
+duration: 1.0
+is_block: false"
+*/
+
+/*
+colcon build --symlink-install --packages-select robohead_interfaces neck_driver 
+*/
+
 #include <rclcpp/rclcpp.hpp>
 #include <robohead_interfaces/srv/move.hpp>
 #include <thread>
@@ -15,17 +26,6 @@
 #define PCA9685_MODE1 0x00
 #define PCA9685_PRESCALE 0xFE
 #define LED0_ON_L 0x06
-
-/*
-ros2 service call /neck_driver/neck_set_angle robohead_interfaces/srv/Move "angle_a: 0
-angle_b: 0
-duration: 1.0
-is_block: false"
-*/
-
-/*
-colcon build --packages-select neck_driver --symlink-install
-*/
 
 class NeckDriver : public rclcpp::Node
 {
@@ -55,55 +55,22 @@ public:
     NeckDriver() : Node("neck_driver")
     {
         // Параметры
-        this->declare_parameter<std::string>("srv_neck_set_angle_name", "~/neck_set_angle");
-        this->declare_parameter<int>("std_vertical_angle", 0);
-        this->declare_parameter<int>("std_horizontal_angle", 0);
-        this->declare_parameter<int>("i2c_address", 0x40);
-        this->declare_parameter<int>("servo_1_channel", 0);
-        this->declare_parameter<int>("servo_2_channel", 1);
-        this->declare_parameter<int>("servo_1_coef", 0);
-        this->declare_parameter<int>("servo_2_coef", 0);
-        this->declare_parameter<int>("servo_pulse_low", 120);
-        this->declare_parameter<int>("servo_pulse_high", 550);
-        this->declare_parameter<int>("constraints.v_from", -30);
-        this->declare_parameter<int>("constraints.v_to", 30);
-        this->declare_parameter<int>("constraints.h_from", -30);
-        this->declare_parameter<int>("constraints.h_to", 30);
+        std::string srv_name = this->declare_parameter<std::string>("srv_neck_set_angle_name", "neck_set_angle");
+        int std_v = this->declare_parameter<int>("std_vertical_angle", 0);
+        int std_h = this->declare_parameter<int>("std_horizontal_angle", 0);
+        _i2c_address = this->declare_parameter<int>("i2c_address", 0x40);
+        _servo_1_channel = this->declare_parameter<int>("servo_1_channel", 4);
+        _servo_2_channel = this->declare_parameter<int>("servo_2_channel", 5);
+        _servo_1_coef = this->declare_parameter<int>("servo_1_coef", 0);
+        _servo_2_coef = this->declare_parameter<int>("servo_2_coef", 0);
+        _servo_pulse_low = this->declare_parameter<int>("servo_pulse_low", 120);
+        _servo_pulse_high = this->declare_parameter<int>("servo_pulse_high", 550);
+        _v_from = this->declare_parameter<int>("constraints.v_from", -30);
+        _v_to = this->declare_parameter<int>("constraints.v_to", 30);
+        _h_from = this->declare_parameter<int>("constraints.h_from", -30);
+        _h_to = this->declare_parameter<int>("constraints.h_to", 30);
 
-        std::string srv_name;
-        int std_v, std_h;
-        this->get_parameter("srv_neck_set_angle_name", srv_name);
-        this->get_parameter("std_vertical_angle", std_v);
-        this->get_parameter("std_horizontal_angle", std_h);
-
-        this->get_parameter("i2c_address", _i2c_address);
-        this->get_parameter("servo_1_channel", _servo_1_channel);
-        this->get_parameter("servo_2_channel", _servo_2_channel);
-        this->get_parameter("servo_1_coef", _servo_1_coef);
-        this->get_parameter("servo_2_coef", _servo_2_coef);
-        this->get_parameter("servo_pulse_low", _servo_pulse_low);
-        this->get_parameter("servo_pulse_high", _servo_pulse_high);
-
-        this->get_parameter("constraints.v_from", _v_from);
-        this->get_parameter("constraints.v_to", _v_to);
-        this->get_parameter("constraints.h_from", _h_from);
-        this->get_parameter("constraints.h_to", _h_to);
-
-        // RCLCPP_INFO(this->get_logger(), "srv_neck_set_angle_name: %s", srv_name.c_str());
-        // RCLCPP_INFO(this->get_logger(), "std_vertical_angle: %i", std_v);
-        // RCLCPP_INFO(this->get_logger(), "std_horizontal_angle: %i", std_h);
-        // RCLCPP_INFO(this->get_logger(), "i2c_address: %i", _i2c_address);
-        // RCLCPP_INFO(this->get_logger(), "servo_1_channel: %i", _servo_1_channel);
-        // RCLCPP_INFO(this->get_logger(), "servo_2_channel: %i", _servo_2_channel);
-        // RCLCPP_INFO(this->get_logger(), "servo_1_coef: %i", _servo_1_coef);
-        // RCLCPP_INFO(this->get_logger(), "servo_2_coef: %i", _servo_2_coef);
-        // RCLCPP_INFO(this->get_logger(), "servo_pulse_low: %i", _servo_pulse_low);
-        // RCLCPP_INFO(this->get_logger(), "servo_pulse_high: %i", _servo_pulse_high);
-        // RCLCPP_INFO(this->get_logger(), "constraints.v_from: %i", _v_from);
-        // RCLCPP_INFO(this->get_logger(), "constraints.v_to: : %i", _v_to);
-        // RCLCPP_INFO(this->get_logger(), "constraints.h_from: : %i", _h_from);
-        // RCLCPP_INFO(this->get_logger(), "constraints.h_to: : %i", _h_to);
-
+        pca9685_init(_i2c_address);
         _goal_angles = {static_cast<double>(std_v), static_cast<double>(std_h), 0.0};
 
         {
@@ -124,7 +91,7 @@ public:
 
         _trajectory_thread = std::thread(&NeckDriver::trajectory_planner, this);
 
-        RCLCPP_INFO(this->get_logger(), "neck_driver INITED");
+        RCLCPP_INFO(this->get_logger(), "INITED");
     }
 
     ~NeckDriver()
@@ -133,6 +100,8 @@ public:
         {
             _trajectory_thread.join();
         }
+        if (i2c_fd >= 0)
+            close(i2c_fd);
     }
 
 private:
@@ -285,9 +254,7 @@ private:
         // Частота внутреннего тактирования PCA9685 — 25 МГц
         double prescale_val = 25000000.0 / (4096.0 * freq_hz) - 1.0;
         uint8_t prescale = static_cast<uint8_t>(std::round(prescale_val));
-
-        // Переводим в sleep mode
-        uint8_t old_mode = 0;
+        
         // Чтение текущего MODE1 (опционально)
         // Но проще просто записать 0x10 (sleep)
         i2c_write_byte(fd, 0x00, 0x10); // Sleep mode
@@ -308,13 +275,13 @@ private:
         i2c_fd = open(i2c_device, O_RDWR);
         if (i2c_fd < 0)
         {
-            RCLCPP_ERROR(rclcpp::get_logger("move_driver"), "Cannot open I2C device");
+            RCLCPP_ERROR(this->get_logger(), "Cannot open I2C device");
             throw std::runtime_error("Cannot open I2C device");
         }
         if (ioctl(i2c_fd, I2C_SLAVE, address) < 0)
         {
             close(i2c_fd);
-            RCLCPP_ERROR(rclcpp::get_logger("move_driver"), "Cannot set I2C slave address");
+            RCLCPP_ERROR(this->get_logger(), "Cannot set I2C slave address");
             throw std::runtime_error("Cannot set I2C slave address");
         }
 
@@ -335,20 +302,13 @@ private:
 
         if (write(i2c_fd, buf, 5) != 5)
         {
-            RCLCPP_ERROR(rclcpp::get_logger("move_driver"), "Failed to write PWM to channel %d", channel);
+            RCLCPP_ERROR(this->get_logger(), "Failed to write PWM to channel %d", channel);
         }
     }
 
     // Конвертация угла (0–180) в PWM (обычно 150–600 для 50 Гц)
     void set_servo_angle(int channel, double angle_deg)
     {
-        static bool initialized = false;
-        if (!initialized)
-        {
-            pca9685_init(_i2c_address);
-            initialized = true;
-        }
-        // int pulse  = angle_deg;
         angle_deg = std::clamp(angle_deg, 0.0, 180.0);
 
         int pulse = static_cast<int>(_servo_pulse_low + (angle_deg / 180.0) * (_servo_pulse_high - _servo_pulse_low)); // Диапазон от 100 до 550 (включительно)
