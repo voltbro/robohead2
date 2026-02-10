@@ -8,9 +8,10 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='respeaker_driver',
-            executable='main',
+            executable='respeaker_driver_node',
             name='respeaker_driver',
             output='screen',
+            namespace='respeaker_driver',
             parameters=[PathJoinSubstitution([
                 FindPackageShare('respeaker_driver'), 'config', 'respeaker_driver.yaml'])
             ]

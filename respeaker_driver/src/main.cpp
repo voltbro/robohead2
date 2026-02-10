@@ -20,6 +20,10 @@
 #include <chrono>
 #include <cmath> // для cos, sin, atan2, M_PI
 
+/*
+colcon build --symlink-install --packages-select respeaker_driver robohead_interfaces
+*/
+
 /* example usage
 ros2 service call /respeaker_driver/set_color_all robohead_interfaces/srv/Color "red: 0
 green: 0
@@ -90,72 +94,59 @@ public:
     RespeakerDriver() : Node("respeaker_driver")
     {
         // Declare Parameters
-        this->declare_parameter("usb/vendor_id", 0x2886);
-        this->declare_parameter("usb/product_id", 0x0018);
-        this->declare_parameter("usb/timeout", 5000);
-        this->declare_parameter("usb/sleep_reset", 500);
-        this->declare_parameter("usb/sleep_stop", 100);
+        usb_vendor_id_ = this->declare_parameter<int>("usb.vendor_id", 0x2886);
+        usb_product_id_ = this->declare_parameter<int>("usb.product_id", 0x0018);
+        usb_timeout_ = this->declare_parameter<int>("usb.timeout", 5000);
+        usb_sleep_reset_ = this->declare_parameter<int>("usb.sleep_reset", 500);
+        usb_sleep_stop_ = this->declare_parameter<int>("usb.sleep_stop", 100);
 
-        this->declare_parameter("audio/sample_rate", 16000);
-        this->declare_parameter("audio/frames_per_buffer", 1024);
-        this->declare_parameter("audio/count_of_channels", 6);
-        this->declare_parameter("audio/main_channel", 0);
+        audio_sample_rate_ = this->declare_parameter<int>("audio.sample_rate", 16000);
+        audio_frames_per_buffer_ = this->declare_parameter<int>("audio.frames_per_buffer", 1024);
+        audio_count_of_channels_ = this->declare_parameter<int>("audio.count_of_channels", 6);
+        audio_main_channel_ = this->declare_parameter<int>("audio.main_channel", 0);
 
-        this->declare_parameter("ros/topic_name/audio_main", "~/audio/main");
-        this->declare_parameter("ros/topic_name/audio_channel_0", "~/audio/channel_0");
-        this->declare_parameter("ros/topic_name/audio_channel_1", "~/audio/channel_1");
-        this->declare_parameter("ros/topic_name/audio_channel_2", "~/audio/channel_2");
-        this->declare_parameter("ros/topic_name/audio_channel_3", "~/audio/channel_3");
-        this->declare_parameter("ros/topic_name/audio_channel_4", "~/audio/channel_4");
-        this->declare_parameter("ros/topic_name/audio_channel_5", "~/audio/channel_5");
-        this->declare_parameter("ros/topic_name/doa", "~/doa");
-        this->declare_parameter("ros/topic_name/set_color_manual", "~/set_color_manual");
-
-        this->declare_parameter("ros/service_name/set_brightness", "~/set_brightness");
-        this->declare_parameter("ros/service_name/set_color_all", "~/set_color_all");
-        this->declare_parameter("ros/service_name/set_color_palette", "~/set_color_palette");
-        this->declare_parameter("ros/service_name/set_mode", "~/set_mode");
-
-        // get parameters
-
-        this->get_parameter("usb/vendor_id", usb_vendor_id_);
-        this->get_parameter("usb/product_id", usb_product_id_);
-        this->get_parameter("usb/timeout", usb_timeout_);
-        this->get_parameter("usb/sleep_reset", usb_sleep_reset_);
-        this->get_parameter("usb/sleep_stop", usb_sleep_stop_);
-
-        this->get_parameter("audio/sample_rate", audio_sample_rate_);
-        this->get_parameter("audio/frames_per_buffer", audio_frames_per_buffer_);
-        this->get_parameter("audio/count_of_channels", audio_count_of_channels_);
-        this->get_parameter("audio/main_channel", audio_main_channel_);
-
-        std::string topic_name_audio_main = this->get_parameter("ros/topic_name/audio_main").as_string();
+        std::string topic_name_audio_main = this->declare_parameter<std::string>("ros.topic_name.audio_main", "audio/main");
         std::vector<std::string> topic_names_channel;
-        topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_0").as_string());
-        topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_1").as_string());
-        topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_2").as_string());
-        topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_3").as_string());
-        topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_4").as_string());
-        topic_names_channel.push_back(this->get_parameter("ros/topic_name/audio_channel_5").as_string());
-        std::string topic_name_doa = this->get_parameter("ros/topic_name/doa").as_string();
-        std::string topic_name_set_color_manual = this->get_parameter("ros/topic_name/set_color_manual").as_string();
 
-        std::string service_name_set_brightness = this->get_parameter("ros/service_name/set_brightness").as_string();
-        std::string service_name_set_color_all = this->get_parameter("ros/service_name/set_color_all").as_string();
-        std::string service_name_set_color_palette = this->get_parameter("ros/service_name/set_color_palette").as_string();
-        std::string service_name_set_set_mode = this->get_parameter("ros/service_name/set_mode").as_string();
+        topic_names_channel.push_back(this->declare_parameter<std::string>("ros.topic_name.audio_channel_0", "audio/channel_0"));
+        topic_names_channel.push_back(this->declare_parameter<std::string>("ros.topic_name.audio_channel_1", "audio/channel_1"));
+        topic_names_channel.push_back(this->declare_parameter<std::string>("ros.topic_name.audio_channel_2", "audio/channel_2"));
+        topic_names_channel.push_back(this->declare_parameter<std::string>("ros.topic_name.audio_channel_3", "audio/channel_3"));
+        topic_names_channel.push_back(this->declare_parameter<std::string>("ros.topic_name.audio_channel_4", "audio/channel_4"));
+        topic_names_channel.push_back(this->declare_parameter<std::string>("ros.topic_name.audio_channel_5", "audio/channel_5"));
+        std::string topic_name_doa = this->declare_parameter<std::string>("ros.topic_name.doa", "doa");
+        std::string topic_name_set_color_manual = this->declare_parameter<std::string>("ros.topic_name.set_color_manual", "set_color_manual");
+
+        std::string service_name_set_brightness = this->declare_parameter<std::string>("ros.service_name.set_brightness", "set_brightness");
+        std::string service_name_set_color_all = this->declare_parameter<std::string>("ros.service_name.set_color_all", "set_color_all");
+        std::string service_name_set_color_palette = this->declare_parameter<std::string>("ros.service_name.set_color_palette", "set_color_palette");
+        std::string service_name_set_set_mode = this->declare_parameter<std::string>("ros.service_name.set_mode", "set_mode");
 
         doa_yaw_offset_rad_ = this->declare_parameter<double>("doa_yaw_offset", 0.0) * M_PI / 180.0;
-        pub_doa_ = this->create_publisher<std_msgs::msg::Int32>(topic_name_doa, 10);
 
+        pub_doa_ = this->create_publisher<std_msgs::msg::Int32>(topic_name_doa, 10);
         if (!initUsb())
         {
             RCLCPP_ERROR(this->get_logger(), "Failed to initialize USB");
             return;
         }
 
-        // Инициализация PortAudio
+        int saved_stderr = dup(STDERR_FILENO);
+        int null_fd = open("/dev/null", O_WRONLY);
+        bool stderr_redirected = (saved_stderr >= 0 && null_fd >= 0);
+
+        if (stderr_redirected)
+        {
+            dup2(null_fd, STDERR_FILENO);
+            close(null_fd);
+        }
+
         PaError err = Pa_Initialize();
+        if (stderr_redirected)
+        {
+            dup2(saved_stderr, STDERR_FILENO);
+            close(saved_stderr);
+        }
 
         if (err != paNoError)
         {
@@ -171,7 +162,7 @@ public:
             {
                 device_index_ = i;
                 num_channels_ = info->maxInputChannels;
-                RCLCPP_INFO(this->get_logger(), "Found ReSpeaker: %s (%d channels)", info->name, num_channels_);
+                // RCLCPP_INFO(this->get_logger(), "Found ReSpeaker: %s (%d channels)", info->name, num_channels_);
                 break;
             }
         }
@@ -187,7 +178,22 @@ public:
                 std::this_thread::sleep_for(std::chrono::milliseconds(usb_sleep_reset_));
                 Pa_Terminate();
 
+                int saved_stderr = dup(STDERR_FILENO);
+                int null_fd = open("/dev/null", O_WRONLY);
+                bool stderr_redirected = (saved_stderr >= 0 && null_fd >= 0);
+
+                if (stderr_redirected)
+                {
+                    dup2(null_fd, STDERR_FILENO);
+                    close(null_fd);
+                }
                 err = Pa_Initialize();
+
+                if (stderr_redirected)
+                {
+                    dup2(saved_stderr, STDERR_FILENO);
+                    close(saved_stderr);
+                }
 
                 if (err != paNoError)
                 {
@@ -227,7 +233,7 @@ public:
         }
 
         // Создание публикаторов
-        RCLCPP_INFO(this->get_logger(), "Start create pubs");
+        // RCLCPP_INFO(this->get_logger(), "Start create pubs");
         pub_main_ = this->create_publisher<robohead_interfaces::msg::AudioData>(topic_name_audio_main, 10);
         for (int i = 0; i < num_channels_; i++)
         {
@@ -235,7 +241,7 @@ public:
                 topic_names_channel[i], 10);
             pub_channels_.push_back(pub);
         }
-        RCLCPP_INFO(this->get_logger(), "Try open stream");
+        // RCLCPP_INFO(this->get_logger(), "Try open stream");
 
         // Открытие потока
         if (!initAudio())
@@ -275,7 +281,7 @@ public:
             topic_name_set_color_manual, 10,
             std::bind(&RespeakerDriver::setColorManualCallback, this, std::placeholders::_1));
 
-        RCLCPP_INFO(this->get_logger(), "respeaker_driver INITED");
+        RCLCPP_INFO(this->get_logger(), "INITED");
     }
 
     ~RespeakerDriver()
@@ -324,45 +330,44 @@ public:
     }
 
 private:
+    int32_t readDoaAngle()
+    {
+        std::lock_guard<std::mutex> lock(usb_mutex_);
+        if (!usb_dev_)
+            return 0;
 
-int32_t readDoaAngle()
-{
-    std::lock_guard<std::mutex> lock(usb_mutex_);
-    if (!usb_dev_) return 0;
+        // DOAANGLE: id=21, cmd=0x80 | 0x00 = 0x80, type=int → add 0x40 → 0xC0
+        uint8_t cmd = 0x80 | 0x00 | 0x40; // 0xC0
+        uint16_t id = 21;
+        uint16_t length = 8;
+        unsigned char buffer[8];
 
-    // DOAANGLE: id=21, cmd=0x80 | 0x00 = 0x80, type=int → add 0x40 → 0xC0
-    uint8_t cmd = 0x80 | 0x00 | 0x40; // 0xC0
-    uint16_t id = 21;
-    uint16_t length = 8;
-    unsigned char buffer[8];
+        int transferred = libusb_control_transfer(
+            usb_dev_,
+            LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE,
+            0x00,
+            cmd,
+            id,
+            buffer,
+            length,
+            usb_timeout_);
 
-    int transferred = libusb_control_transfer(
-        usb_dev_,
-        LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE,
-        0x00,
-        cmd,
-        id,
-        buffer,
-        length,
-        usb_timeout_
-    );
+        if (transferred != length)
+        {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Failed to read DOA angle");
+            return 0;
+        }
 
-    if (transferred != length) {
-        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Failed to read DOA angle");
-        return 0;
+        // Распаковка двух int32 из 8 байт (little-endian)
+        int32_t raw_value = static_cast<int32_t>(
+            (static_cast<uint32_t>(buffer[0]) |
+             (static_cast<uint32_t>(buffer[1]) << 8) |
+             (static_cast<uint32_t>(buffer[2]) << 16) |
+             (static_cast<uint32_t>(buffer[3]) << 24)));
+
+        // Второе значение (экспонента) игнорируется для 'int'
+        return raw_value;
     }
-
-    // Распаковка двух int32 из 8 байт (little-endian)
-    int32_t raw_value = static_cast<int32_t>(
-        (static_cast<uint32_t>(buffer[0]) |
-         (static_cast<uint32_t>(buffer[1]) << 8) |
-         (static_cast<uint32_t>(buffer[2]) << 16) |
-         (static_cast<uint32_t>(buffer[3]) << 24))
-    );
-
-    // Второе значение (экспонента) игнорируется для 'int'
-    return raw_value;
-}
 
     bool resetUsbDevice(uint16_t vid, uint16_t pid)
     {
@@ -627,8 +632,7 @@ int32_t readDoaAngle()
             node->pub_main_->publish(std::move(main_msg));
         }
 
-
-    // === DOA PUBLICATION ===
+        // === DOA PUBLICATION ===
         int32_t raw_doa = node->readDoaAngle(); // in degrees, 0..359
 
         // Преобразуем в радианы
@@ -655,7 +659,6 @@ int32_t readDoaAngle()
         auto doa_msg = std::make_shared<std_msgs::msg::Int32>();
         doa_msg->data = corrected_deg;
         node->pub_doa_->publish(*doa_msg);
-
 
         return paContinue;
     }
