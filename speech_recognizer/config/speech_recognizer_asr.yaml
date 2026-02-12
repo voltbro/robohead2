@@ -1,0 +1,21 @@
+/**:
+  ros__parameters:
+    timeout: 4.0
+    default_mode: 0
+    # 0 off recognition
+    # 1 commands recognition
+    # 2 free recognition
+    sample_rate: 16000
+    model_path: 'vosk-model-small-ru-0.22'
+    timeout_text: '__TIMEOUT__'
+
+    commands:
+      - 'покажи уши'
+      - 'поздоровайся'
+
+    ros:
+      service_name:
+        set_mode: 'set_mode'
+      topic_name:
+        commands: 'commands'
+        audio_input: '/respeaker_driver/audio/main'

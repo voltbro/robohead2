@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+    default_mode: 0
+    # 0 - off recognition
+    # 1 - on recognition
+
+    sample_rate: 16000
+    model_path: 'vosk-model-small-ru-0.22'
+    wake_phrases:
+      - "слушай робот"
+
+    fast_commands:
+      - 'громче'
+      - 'тише'
+      - 'стоп'
+
+    ros:
+      service_name:
+        set_mode: 'set_mode'
+      topic_name:
+        wake_phrases: 'wake_phrases'
+        fast_commands: 'fast_commands'
+        audio_input: '/respeaker_driver/audio/main'

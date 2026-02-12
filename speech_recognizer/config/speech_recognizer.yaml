@@ -1,13 +1,14 @@
-/speech_recognizer:
+/**:
   ros__parameters:
     grammar_timeout: 4.0
-    default_mode: 0
+    default_mode: 3
     # 0 off recognition
     # 1 key words recognition
     # 2 commands recognition
     # 3 free recognition
     sample_rate: 16000
-    model_path: '/home/pi/robohead_ws/src/robohead2/speech_recognizer/config/vosk-model-small-ru-0.22'
+    model_path: 'vosk-model-small-ru-0.22'
+    timeout_text: '__TIMEOUT__'
     wake_phrases:
       - "слушай робот"
 
@@ -18,8 +19,8 @@
 
     ros:
       service_name:
-        set_mode: '~/set_mode'
+        set_mode: 'set_mode'
       topic_name:
-        wake_phrases: '~/wake_phrases'
-        commands: '~/commands'
+        wake_phrases: 'wake_phrases'
+        commands: 'commands'
         audio_input: '/respeaker_driver/audio/main'
