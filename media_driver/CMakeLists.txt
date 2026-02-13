@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(media_driver LANGUAGES CXX)
+project(media_driver)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,19 +13,8 @@ find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Find libmpv
-find_package(PkgConfig QUIET)
-if(PKG_CONFIG_FOUND)
-  pkg_check_modules(MPV REQUIRED mpv)
-  include_directories(${MPV_INCLUDE_DIRS})
-  link_directories(${MPV_LIBRARY_DIRS})
-  add_definitions(${MPV_CFLAGS_OTHER})
-  set(MPV_LIBS ${MPV_LIBRARIES})
-else()
-  find_path(MPV_INCLUDE_DIR mpv/client.h)
-  find_library(MPV_LIB mpv)
-  include_directories(${MPV_INCLUDE_DIR})
-  set(MPV_LIBS ${MPV_LIB})
-endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
 
 # --- Важно: сюда добавляем include из cv_bridge и OpenCV ---
 include_directories(
@@ -34,23 +23,57 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-# --- Исполняемый файл ---
-add_executable(main src/main.cpp)
+# Исходники
+set(SOURCES
+  src/mpv_player.cpp
+  src/utils.cpp
+  src/node.cpp
+)
+set(HEADERS 
+  include/${PROJECT_NAME}/mpv_player.hpp
+  include/${PROJECT_NAME}/utils.hpp
+  include/${PROJECT_NAME}/node.hpp
+)
 
-target_link_libraries(main
-  ${MPV_LIBS}
+# --- Исполняемый файл ---
+add_executable(${PROJECT_NAME}_node
+  src/main.cpp
+  ${SOURCES}
+)
+
+target_include_directories(${PROJECT_NAME}_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+
+
+target_link_libraries(${PROJECT_NAME}_node
+  # ${MPV_LIBS}
+  PkgConfig::MPV
   ${OpenCV_LIBS}
 )
 
-ament_target_dependencies(main
+ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   robohead_interfaces
   sensor_msgs
   cv_bridge
 )
 
+# Установка заголовочных файлов
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
+)
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
 install(TARGETS
-  main
+  ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

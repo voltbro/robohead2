@@ -1,0 +1,387 @@
+#include "media_driver/mpv_player.hpp"
+#include <chrono>
+#include <thread>
+#include <algorithm>
+#include <system_error>
+#include <sys/stat.h>
+
+using namespace std::chrono_literals;
+using namespace MPV;
+
+MPVPlayer::MPVPlayer(rclcpp::Logger logger, const struct MPV::Config config) : logger_(logger), config_(config)
+{
+  RCLCPP_DEBUG(logger_, "[%s] Creating MPVPlayer (type: %s, volume: %f)",
+               config_.name.c_str(), config_.type == MPV::Type::VIDEO ? "VIDEO" : "AUDIO", config_.volume);
+}
+
+MPVPlayer::~MPVPlayer()
+{
+  // Атомарная остановка потока событий
+  running_.store(false);
+
+  // Остановка воспроизведения
+  if (mpv_handle_)
+  {
+    safe_command({"stop"});
+    mpv_terminate_destroy(mpv_handle_);
+    mpv_handle_ = nullptr;
+    RCLCPP_INFO(logger_, "[%s] MPV terminated", config_.name.c_str());
+  }
+
+  // Ожидание завершения потока событий
+  if (event_thread_.joinable())
+  {
+    event_thread_.join();
+    RCLCPP_DEBUG(logger_, "[%s] Event thread joined", config_.name.c_str());
+  }
+}
+
+bool MPVPlayer::initialize()
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  // Создание экземпляра mpv
+  mpv_handle_ = mpv_create();
+  if (!mpv_handle_)
+  {
+    RCLCPP_FATAL(logger_, "[%s] mpv_create() FAILED - cannot create mpv instance", config_.name.c_str());
+    return false;
+  }
+
+  // Специфичные настройки по типу
+  bool configured = false;
+  if (config_.type == MPV::Type::VIDEO)
+  {
+    configured = configure_video_player();
+  }
+  else if (config_.type == MPV::Type::AUDIO)
+  {
+    configured = configure_audio_player();
+  }
+  else
+  {
+    RCLCPP_FATAL(logger_, "[%s] mpv configure FAILED. Invalid type (VIDEO/AUDIO) in config!", config_.name.c_str());
+  }
+
+  if (!configured)
+  {
+    RCLCPP_FATAL(logger_, "[%s] mpv configure total FAILED.", config_.name.c_str());
+    mpv_terminate_destroy(mpv_handle_);
+    mpv_handle_ = nullptr;
+    return false;
+  }
+
+  // Установка громкости
+  if (mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_DOUBLE, &config_.volume) < 0)
+  {
+    RCLCPP_WARN(logger_, "[%s] Failed to set initial volume to %f", config_.name.c_str(), config_.volume);
+  }
+
+  // Инициализация mpv
+  if (mpv_initialize(mpv_handle_) < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] mpv_initialize() FAILED", config_.name.c_str());
+    mpv_terminate_destroy(mpv_handle_);
+    mpv_handle_ = nullptr;
+    return false;
+  }
+
+  // Запуск потока событий
+  running_ = true;
+  event_thread_ = std::thread(&MPVPlayer::event_loop, this);
+
+  RCLCPP_INFO(logger_, "[%s] MPV player initialized successfully (type: %s)",
+              config_.name.c_str(), config_.type == MPV::Type::VIDEO ? "VIDEO" : "AUDIO");
+  return true;
+}
+
+bool MPVPlayer::configure_video_player()
+{
+  RCLCPP_DEBUG(logger_, "[%s] Configuring VIDEO player", config_.name.c_str());
+
+  if (mpv_set_option_string(mpv_handle_, "keep-open", "yes") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'keep-open=yes'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "idle", "yes") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'idle=yes'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "audio-client-name", config_.name.c_str()) < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'audio-client-name=%s'", config_.name.c_str(), config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "ao", "null") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'ao=null'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "aid", "no") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'aid=no'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "vo", "drm") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'vo=drm'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "hwdec", "auto") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'hwdec=drm'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "image-display-duration", "86400") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'image-display-duration=86400'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "force-window", "yes") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'force-window=yes'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "video-rotate", config_.rotate.c_str()) < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'video-rotate=%s'", config_.name.c_str(), config_.rotate.c_str());
+    return false;
+  }
+
+  // mpv_set_option_string(mpv_handle_, "loop-file", "no");
+
+  return true;
+}
+
+bool MPVPlayer::configure_audio_player()
+{
+  RCLCPP_DEBUG(logger_, "[%s] Configuring AUDIO player", config_.name.c_str());
+
+  if (mpv_set_option_string(mpv_handle_, "keep-open", "yes") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'keep-open=yes'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "idle", "yes") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'idle=yes'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "audio-client-name", config_.name.c_str()) < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'audio-client-name=%s'", config_.name.c_str(), config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "ao", "alsa") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'ao=alsa'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "aid", "auto") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'aid=auto'", config_.name.c_str());
+    return false;
+  }
+
+  if (mpv_set_option_string(mpv_handle_, "vo", "null") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'vo=null'", config_.name.c_str());
+    return false;
+  }
+
+  // Дополнительные настройки для аудио
+  // mpv_set_option_string(mpv_handle_, "gapless-audio", "yes");
+  // mpv_set_option_string(mpv_handle_, "audio-pitch-correction", "no");
+
+  return true;
+}
+
+void MPVPlayer::event_loop()
+{
+  RCLCPP_DEBUG(logger_, "[%s] Event loop started", config_.name.c_str());
+
+  while (running_.load() && mpv_handle_)
+  {
+    mpv_event *ev = mpv_wait_event(mpv_handle_, config_.event_wait_timeout_ms / 1000.0);
+
+    if (!ev || ev->event_id == MPV_EVENT_NONE)
+      continue;
+
+    switch (ev->event_id)
+    {
+    case MPV_EVENT_SHUTDOWN:
+      RCLCPP_WARN(logger_, "[%s] MPV shutdown event received", config_.name.c_str());
+      running_.store(false);
+      break;
+
+    case MPV_EVENT_FILE_LOADED:
+      RCLCPP_DEBUG(logger_, "[%s] File loaded — playback started", config_.name.c_str());
+      break;
+
+    case MPV_EVENT_END_FILE:
+      RCLCPP_DEBUG(logger_, "[%s] End of file reached", config_.name.c_str());
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  RCLCPP_DEBUG(logger_, "[%s] Event loop terminated", config_.name.c_str());
+}
+
+int MPVPlayer::safe_command(const std::vector<const char *> &args)
+{
+  if (!mpv_handle_)
+  {
+    RCLCPP_ERROR(logger_, "[%s] Cannot execute command: mpv_handle is null", config_.name.c_str());
+    return -1;
+  }
+
+  std::vector<const char *> argv = args;
+  argv.push_back(nullptr);
+
+  int r = mpv_command(mpv_handle_, (argv.data()));
+  if (r < 0)
+  {
+    RCLCPP_DEBUG(logger_, "[%s] mpv_command '%s' returned error %d",
+                 config_.name.c_str(), argv[0] ? argv[0] : "null", r);
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(config_.command_timeout_ms));
+  return r;
+}
+
+bool MPVPlayer::check_file_exists(const std::string &path) const
+{
+  if (path.empty())
+    return false;
+
+  // Для потоков из /dev/shm пропускаем проверку
+  if (path.find("/dev/shm/") == 0)
+    return true;
+
+  struct stat buffer;
+  return (stat(path.c_str(), &buffer) == 0);
+}
+
+bool MPVPlayer::play(const std::string &path, bool loop)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!mpv_handle_)
+  {
+    RCLCPP_ERROR(logger_, "[%s] Cannot play: player not initialized", config_.name.c_str());
+    return false;
+  }
+
+  if (!check_file_exists(path))
+  {
+    RCLCPP_ERROR(logger_, "[%s] File not found: %s", config_.name.c_str(), path.c_str());
+    return false;
+  }
+
+  // Останавливаем текущее воспроизведение
+  if (safe_command({"stop"}) < 0)
+  {
+    RCLCPP_ERROR(logger_, "[%s] Failed to stop playback", config_.name.c_str());
+  }
+
+  if (mpv_set_property_string(mpv_handle_, "loop-file", loop ? "inf" : "no") < 0)
+  {
+    RCLCPP_ERROR(logger_, "[%s] Failed to loop playback (%s)", config_.name.c_str(), path.c_str());
+  }
+
+  // Загружаем новый файл
+  if (safe_command({"loadfile", path.c_str(), "replace"}) < 0)
+  {
+    RCLCPP_ERROR(logger_, "[%s] Failed to load file: %s", config_.name.c_str(), path.c_str());
+    return false;
+  }
+
+  if (mpv_set_property_string(mpv_handle_, "pause", "no") < 0)
+  {
+    RCLCPP_ERROR(logger_, "[%s] Failed to unpause playback", config_.name.c_str());
+  }
+
+  RCLCPP_INFO(logger_, "[%s] Started playback: %s", config_.name.c_str(), path.c_str());
+  return true;
+}
+
+double MPVPlayer::set_volume(double volume)
+{
+  double volume_ = std::clamp(volume, 0.0, 100.0);
+
+  bool success = mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_DOUBLE, &volume_);
+  if (success >= 0)
+  {
+    RCLCPP_DEBUG(logger_, "[%s] Volume set to %f", config_.name.c_str(), volume_);
+    return volume_;
+  }
+  else
+  {
+    RCLCPP_WARN(logger_, "[%s] Failed to set volume to %f", config_.name.c_str(), volume_);
+    return -1;
+  }
+}
+
+double MPVPlayer::get_volume() const
+{
+  if (!mpv_handle_)
+    return -1;
+
+  double vol = 0.0;
+  if (mpv_get_property(mpv_handle_, "volume", MPV_FORMAT_DOUBLE, &vol) >= 0)
+  {
+    return std::clamp(vol, 0.0, 100.0);
+  }
+  return -1;
+}
+
+bool MPVPlayer::is_eof()
+{
+  if (!mpv_handle_)
+    return false;
+
+  if (running_.load())
+  {
+
+    int64_t eof = 0;
+    if (mpv_get_property(mpv_handle_, "eof-reached", MPV_FORMAT_FLAG, &eof) >= 0 && eof)
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool MPVPlayer::stop() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  
+  if (!mpv_handle_) return false;
+  
+  bool result = (safe_command({"stop"}) >= 0);
+  
+  if (result) {
+    RCLCPP_DEBUG(logger_, "[%s] Playback stopped", config_.name.c_str());
+  } else {
+    RCLCPP_WARN(logger_, "[%s] Failed to stop playback", config_.name.c_str());
+  }
+  
+  return result;
+}
