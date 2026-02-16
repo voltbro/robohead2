@@ -7,8 +7,9 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='media_driver',
-            executable='main',
+            executable='media_driver_node',
             name='media_driver',
+            namespace='media_driver',
             parameters=[PathJoinSubstitution([
                 FindPackageShare('media_driver'), 'config', 'media_driver.yaml'])
             ],

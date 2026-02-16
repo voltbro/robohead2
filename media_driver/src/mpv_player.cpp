@@ -271,9 +271,32 @@ bool MPVPlayer::check_file_exists(const std::string &path) const
   if (path.empty())
     return false;
 
-  // Для потоков из /dev/shm пропускаем проверку
-  if (path.find("/dev/shm/") == 0)
+  // === Обработка интернет-потоков (пропускаем проверку) ===
+  // Поддерживаемые протоколы: http(s), rtsp, rtmp, mms, hls, dash
+  static const std::vector<std::string> stream_protocols = {
+    "http://", "https://", "rtsp://", "rtmp://", 
+    "mms://", "mmsh://", "mmst://", "mmsu://",
+    "hls://", "dash://", "ytdl://"
+  };
+  
+  for (const auto& proto : stream_protocols) {
+    if (path.compare(0, proto.length(), proto) == 0) {
+      RCLCPP_DEBUG(logger_, "[%s] Detected stream URL (protocol: %s), skipping file check", 
+                   config_.name.c_str(), proto.c_str());
+      return true; // Доверяем URL, проверка будет в mpv
+    }
+  }
+
+  // === Обработка специальных путей ===
+  // /dev/shm — временная память (мы сами пишем туда кадры)
+  if (path.find("/dev/shm/") == 0) {
     return true;
+  }
+  
+  // pipe:// — именованные каналы (используются для потоковой передачи)
+  if (path.find("pipe://") == 0) {
+    return true;
+  }
 
   struct stat buffer;
   return (stat(path.c_str(), &buffer) == 0);
@@ -318,15 +341,45 @@ bool MPVPlayer::play(const std::string &path, bool loop)
     RCLCPP_ERROR(logger_, "[%s] Failed to unpause playback", config_.name.c_str());
   }
 
-  RCLCPP_INFO(logger_, "[%s] Started playback: %s", config_.name.c_str(), path.c_str());
+  // RCLCPP_INFO(logger_, "[%s] Started playback: %s", config_.name.c_str(), path.c_str());
   return true;
 }
+
+
+bool MPVPlayer::update_frame(const std::string& path) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    if (!mpv_handle_) {
+        RCLCPP_ERROR(logger_, "[%s] Cannot update frame: player not initialized", config_.name.c_str());
+        return false;
+    }
+    
+    if (!check_file_exists(path)) {
+        RCLCPP_ERROR(logger_, "[%s] Frame file not found: %s", config_.name.c_str(), path.c_str());
+        return false;
+    }
+    
+    // КРИТИЧЕСКИ ВАЖНО: Заменяем файл БЕЗ остановки воспроизведения
+    if (safe_command({"loadfile", path.c_str(), "replace"}) < 0) {
+        RCLCPP_ERROR(logger_, "[%s] Failed to update frame: %s", config_.name.c_str(), path.c_str());
+        return false;
+    }
+    
+    // Гарантируем, что воспроизведение не на паузе
+    if (mpv_set_property_string(mpv_handle_, "pause", "no") < 0) {
+        RCLCPP_WARN(logger_, "[%s] Failed to unpause after frame update", config_.name.c_str());
+    }
+    
+    return true;
+}
+
+
 
 double MPVPlayer::set_volume(double volume)
 {
   double volume_ = std::clamp(volume, 0.0, 100.0);
 
-  bool success = mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_DOUBLE, &volume_);
+  int success = mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_DOUBLE, &volume_);
   if (success >= 0)
   {
     RCLCPP_DEBUG(logger_, "[%s] Volume set to %f", config_.name.c_str(), volume_);

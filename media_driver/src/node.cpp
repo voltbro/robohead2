@@ -22,11 +22,19 @@ MediaDriverNode::MediaDriverNode()
         : Node("media_driver"), running_(true)
     {
         // Создаём и инициализируем видео-плеер
+        std::string display_rotate = this->declare_parameter<std::string>("display_rotate", "0");
+        stop_command = this->declare_parameter<std::string>("stop_command", "__STOP__");
+        double volume = this->declare_parameter<double>("default_volume", 50.0);
+
+        std::string srv_set_volume_name = this->declare_parameter<std::string>("srv_set_volume_name", "set_volume");
+        std::string srv_get_volume_name = this->declare_parameter<std::string>("srv_get_volume_name", "get_volume");
+        std::string srv_play_media_name = this->declare_parameter<std::string>("srv_play_media_name", "play_media");
+        std::string topic_stream_name = this->declare_parameter<std::string>("topic_stream_name", "stream");
 
         MPV::Config video_cfg;
         video_cfg.type = MPV::Type::VIDEO;
         video_cfg.name = "mpv_video";
-        video_cfg.rotate = "270";
+        video_cfg.rotate = display_rotate;
 
         video_player_ = std::make_unique<MPV::MPVPlayer>(this->get_logger(), video_cfg);
 
@@ -39,6 +47,7 @@ MediaDriverNode::MediaDriverNode()
         MPV::Config audio_cfg;
         audio_cfg.type = MPV::Type::AUDIO;
         audio_cfg.name = "audio_mpv";
+        audio_cfg.volume = volume;
         // Создаём и инициализируем аудио-плеер
         audio_player_ = std::make_unique<MPV::MPVPlayer>(this->get_logger(), audio_cfg);
 
@@ -50,24 +59,24 @@ MediaDriverNode::MediaDriverNode()
 
         // Сервисы
         srv_play_ = this->create_service<PlayMedia>(
-            "/robohead_controller/media_driver/play_media",
+            srv_play_media_name,
             std::bind(&MediaDriverNode::handle_play_media, this, std::placeholders::_1, std::placeholders::_2));
 
         srv_set_vol_ = this->create_service<SimpleCommand>(
-            "/robohead_controller/media_driver/set_volume",
+            srv_set_volume_name,
             std::bind(&MediaDriverNode::handle_set_volume, this, std::placeholders::_1, std::placeholders::_2));
 
         srv_get_vol_ = this->create_service<SimpleCommand>(
-            "/robohead_controller/media_driver/get_volume",
+            srv_get_volume_name,
             std::bind(&MediaDriverNode::handle_get_volume, this, std::placeholders::_1, std::placeholders::_2));
 
         // Подписка на видеопоток
         sub_stream_ = this->create_subscription<sensor_msgs::msg::Image>(
-            "/robohead_controller/media_driver/stream",
+            topic_stream_name,
             rclcpp::QoS(1).best_effort(),
             std::bind(&MediaDriverNode::handle_stream_image, this, std::placeholders::_1));
 
-        RCLCPP_INFO(this->get_logger(), "MediaDriverNode initialized with dual MPV players");
+        RCLCPP_INFO(this->get_logger(), "INITED");
     }
 MediaDriverNode::~MediaDriverNode()
     {
@@ -90,7 +99,7 @@ MediaDriverNode::~MediaDriverNode()
             cv::imwrite(tmp_path, frame);
 
             // Загружаем в видео-плеер БЕЗ остановки аудио!
-            video_player_->play(tmp_path, true);
+            video_player_->update_frame(tmp_path);
 
             RCLCPP_DEBUG(this->get_logger(), "Stream frame updated (%dx%d)", frame.cols, frame.rows);
         }
@@ -119,7 +128,7 @@ MediaDriverNode::~MediaDriverNode()
         if (!video_path.empty())
         {   
 
-            if (video_path == "__STOP__")
+            if (video_path == stop_command)
             {
                 video_player_->stop();
             } else if (is_video(video_path) || is_image(video_path))
@@ -141,10 +150,10 @@ MediaDriverNode::~MediaDriverNode()
         // Обработка аудио (если указан путь)
         if (!audio_path.empty())
         {
-            if (audio_path == "__STOP__")
+            if (audio_path == stop_command)
             {
                 audio_player_->stop();
-            } else if (is_audio(audio_path))
+            } else if (is_audio(audio_path) || is_video(audio_path))
             {
                 if (!audio_player_->play(audio_path, loop))
                 {

@@ -30,6 +30,7 @@ private:
   std::unique_ptr<MPV::MPVPlayer> audio_player_;
   std::atomic<bool> running_;
   std::mutex mtx_;
+  std::string stop_command;
 
   rclcpp::Service<robohead_interfaces::srv::PlayMedia>::SharedPtr srv_play_;
   rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_set_vol_;

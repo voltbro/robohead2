@@ -11,14 +11,14 @@ class ImageForwarder(Node):
         # Подписка на исходный поток
         self.sub = self.create_subscription(
             Image,
-            '/robohead_controller/image_raw',
+            '/image_raw',
             self.image_callback,
             10)
 
         # Публикация в медиадрайвер
         self.pub = self.create_publisher(
             Image,
-            '/robohead_controller/media_driver/stream',
+            '/media_driver/stream',
             10)
 
         self.get_logger().info('ImageForwarder initialized — forwarding image_raw → media_driver/stream')
