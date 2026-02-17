@@ -25,14 +25,15 @@ def generate_launch_description():
         Node(
             package='robohead_controller',
             executable='main',  # ← из entry_points в setup.py
-            name='robohead_controller',
+            name='robohead_controller_node',
             output='screen',
+            namespace='/robohead/robohead_controller',
             parameters=[
-                PathJoinSubstitution([
+               PathJoinSubstitution([
                     pkg_robohead_controller,
                     'config',
                     'robohead_controller.yaml'
-                ])
+                ]),
             ]
         ),
     ])
