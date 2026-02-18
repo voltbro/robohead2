@@ -8,6 +8,12 @@ class SensorDriverConnector:
         self.controller = controller
 
         self.sub_battery_state = None
+
+        self.msg_battery_state = None
+        self.battery_voltage = None
+        self.battery_current = None
+        self.battery_power_supply_status = None
+        self.battery_power_supply_technology = None
     
     def connect(self):
     

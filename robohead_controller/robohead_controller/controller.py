@@ -9,40 +9,34 @@ from .drivers.speech_recognizer_asr import SpeechRecognizerAsrConnector
 from .drivers.speech_recognizer_kws import SpeechRecognizerKwsConnector
 from .drivers.usb_cam import UsbCamConnector
 
+from .core.battery_monitor import BatteryMonitor
+from .core.action_manager import ActionManager
+from .core.commander import Commander
 
-# from .drivers.ears_driver import EarsDriverConnector
-# ... импорт других драйверов ...
-# from .core.actions import ActionManager
-# from .core.battery_monitor import BatteryMonitor
-# from .core.speech_handler import SpeechHandler
+import json
+import os
 
 class RoboheadController(Node):
     def __init__(self):
         super().__init__('robohead_controller')
         
         # Загрузка параметров
-        # self.declare_parameter('low_voltage_threshold', 7.0)
         self.low_voltage_threshold = self.declare_parameter('low_voltage_threshold', 0.0).value
         self.low_voltage_hysteresis = self.declare_parameter('low_voltage_hysteresis', 0.0).value
         self.wait_timeout = self.declare_parameter('wait_timeout', 1.0).value
+        self.actions_match = json.loads(self.declare_parameter('actions_match', "{}").value)
+        package_dir = os.path.dirname(os.path.abspath(__file__))
+        for key in self.actions_match.keys():
+            self.actions_match[key] = os.path.join(package_dir, 'actions', self.actions_match[key])
+        # self.get_logger().info(f"RoboheadController actions match: {self.actions_match}")
+        # for key, val in self.actions_match.items():
+        #     self.get_logger().info(f"{key} : {val}")
 
-
-
-        # self.declare_parameter('low_voltage_hysteresis', 0.5)
-        # self.declare_parameter('actions_match', "{}")
-        
-        # Инициализация компонентов
-        # self.action_manager = ActionManager(self)
-        
-        # self.action_manager.load_actions(actions_str)
-        
-        # self.battery_monitor = BatteryMonitor(
-        #     self,
-        #     self.get_parameter('low_voltage_threshold').value,
-        #     self.get_parameter('low_voltage_hysteresis').value
-        # )
-        
-        # self.speech_handler = SpeechHandler(self, self.action_manager, self.battery_monitor)
+        self.is_allow_work = False
+        self.action_manager = None
+        self.queue_wake_phrases = list()
+        self.queue_commands = list()
+        self.queue_fast_commands = list()
         
         # Инициализация драйверов
         self.media_driver = MediaDriverConnector(self)
@@ -53,6 +47,11 @@ class RoboheadController(Node):
         self.speech_recognizer_asr = SpeechRecognizerAsrConnector(self)
         self.speech_recognizer_kws = SpeechRecognizerKwsConnector(self)
         self.usb_cam = UsbCamConnector(self)
+
+        # Инициализация компонентов
+        self.action_manager = ActionManager(self)
+        self.battery_monitor = BatteryMonitor(self)
+        self.commander = Commander(self)
         
         self.get_logger().info("RoboheadController INITED")
     
@@ -85,10 +84,7 @@ class RoboheadController(Node):
         )
 
         self.ears_driver.set_angle(-90, 30)
-        self.speech_recognizer_kws.set_mode(1)
 
-        # Активация распознавания ключевых слов
-        # self.speech_handler.enable_wake_word_detection()
-        # self.battery_monitor.is_allow_work = True
+        self.speech_recognizer_kws.set_mode(1)
         
         self.get_logger().info("Controller started and ready")

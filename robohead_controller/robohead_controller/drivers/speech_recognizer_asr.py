@@ -10,11 +10,14 @@ class SpeechRecognizerAsrConnector:
 
         self.srv_set_mode = None
         self.sub_commands = None
+        self.timeout_text = None
     
     def connect(self):
     
         srv_set_mode_name = self.controller.declare_parameter('speech_recognizer_asr.service_name.set_mode', 'dflt').value
         sub_commands_name = self.controller.declare_parameter('speech_recognizer_asr.topic_name.commands', 'dflt').value
+        self.timeout_text = self.controller.declare_parameter('speech_recognizer_asr.timeout_text', 'dflt').value
+
 
         self.sub_commands = self.controller.create_subscription(String, sub_commands_name, self.sub_commands_callback, 1)
         self.srv_set_mode = self.controller.create_client(SimpleCommand, srv_set_mode_name)
@@ -28,6 +31,8 @@ class SpeechRecognizerAsrConnector:
     def sub_commands_callback(self, msg:String):
         command = msg.data
         self.controller.get_logger().info(f'Command: |{command}| ')
+        self.controller.queue_commands.append(command)
+        
     
     def set_mode(self, mode:int=0):
         # mode:
@@ -38,7 +43,7 @@ class SpeechRecognizerAsrConnector:
         req.data = mode
         
         future = self.srv_set_mode.call_async(req)
-        rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
-        return future.result() if future.done() else None
+        # rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
+        # return future.result() if future.done() else None
 
 

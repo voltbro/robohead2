@@ -31,11 +31,13 @@ class SpeechRecognizerKwsConnector:
     
     def sub_fast_commands_callback(self, msg:String):
         fast_command = msg.data
-        self.controller.get_logger().info(f'Command: |{fast_command}| ')
+        self.controller.queue_fast_commands.append(fast_command)
+        self.controller.get_logger().info(f'fast_command: |{fast_command}| ')
 
     def sub_wake_phrases_callback(self, msg:String):
         wake_phrase = msg.data
-        self.controller.get_logger().info(f'Command: |{wake_phrase}| ')
+        self.controller.queue_wake_phrases.append(wake_phrase)
+        self.controller.get_logger().info(f'wake_phrase|{wake_phrase}| ')
 
     def set_mode(self, mode:int=0):
         # mode:
@@ -45,7 +47,7 @@ class SpeechRecognizerKwsConnector:
         req.data = mode
         
         future = self.srv_set_mode.call_async(req)
-        rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
-        return future.result() if future.done() else None
+        # rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
+        # return future.result() if future.done() else None
 
 

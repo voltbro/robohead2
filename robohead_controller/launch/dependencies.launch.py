@@ -68,15 +68,27 @@ def generate_launch_description():
                     executable='usb_cam_node_exe',  # ← стандартное имя в ROS 2 usb_cam
                     name='usb_cam',
                     output='screen',
+                    # arguments=['--ros-args', '--log-level', 'FATAL'],
                     namespace='usb_cam',
                     parameters=[{
-                        # 'video_device': '/dev/video0',
-                        # 'image_width': 640,
-                        # 'image_height': 480,
-                        # 'framerate': 25.0,
-                        # 'pixel_format': 'mjpeg',
-                        # 'color_format': 'rgb8',
-                        # 'io_method': 'mmap'
+                            'video_device': '/dev/video0',
+                            'image_width': 640,
+                            'image_height': 480,
+                            'framerate': 5.0,
+                            'pixel_format': 'mjpeg2rgb',      # ← MJPEG вместо yuyv, mjpeg2rgb, raw_mjpeg, yuyv2rgb
+                            # 'color_format': 'rgb24',
+                            'io_method': 'mmap',
+                            # 'camera_name': 'default_cam',
+                            'frame_id': 'front_camera',
+                            'camera_info_url': '',        # ← Отключаем калибровку
+                            # ПОДДЕРЖИВАЕМЫЕ параметры (проверьте через `v4l2-ctl --list-ctrls`):
+                            # 'brightness': 50,             # ← Только если поддерживается
+                            # 'contrast': 50,               # ← Только если поддерживается
+                            # 'saturation': 50,             # ← Только если поддерживается
+                            # УБРАТЬ неподдерживаемые:
+                            # 'white_balance_temperature_auto': 1,  # ← УДАЛИТЬ
+                            # 'exposure_auto': 3,                   # ← УДАЛИТЬ
+                            # 'focus_auto': 0,                      # ← УДАЛИТЬ
                     }]
                 ),
 

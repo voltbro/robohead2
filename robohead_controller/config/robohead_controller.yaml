@@ -34,6 +34,7 @@
       topic_name: "/robohead/sensor_driver/battery"
     
     speech_recognizer_asr:
+      timeout_text: '__TIMEOUT__'
       service_name:
         set_mode: '/robohead/speech_recognizer/asr/set_mode'
       topic_name:
@@ -53,33 +54,17 @@
     low_voltage_hysteresis: 0.5
     wait_timeout: 1.0
 
+    # в actions_match МОЖНО использовать абсолютные пути до файлов!
+    # если путь относительный, то поиск идет в robohead_controller/robohead_controller/actions
     actions_match: >
-
-
       {
-        "std_wait": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_wait/action.py",
-        "std_low_bat": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_low_bat/action.py",
-        "слушай робот": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_attention/action.py",
-        "поздоровайся": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_greeting/action.py",
-        "покажи уши": "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_ears/action.py",
-        "следи за шариком" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_ball_tracker/action.py",
-        "сделай фото" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_make_photo/action.py",
-        "покажи левое ухо" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_left_ear/action.py",
-        "покажи правое ухо" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/actions/std_right_ear/action.py"
+        "std_wait":           "std_wait/action.py", 
+        "std_low_bat":        "std_low_bat/action.py",
+        "слушай робот":       "std_attention/action.py",
+        "поздоровайся":       "std_greeting/action.py",
+        "покажи уши":         "std_ears/action.py",
+        "следи за шариком" :  "std_ball_tracker/action.py",
+        "сделай фото" :       "std_make_photo/action.py",
+        "покажи левое ухо" :  "std_left_ear/action.py",
+        "покажи правое ухо" : "std_right_ear/action.py"
       }
-# {
-#   "std_wait": "std_wait.action",
-#   "слушай робот": "std_attention.action"
-# }
-# {
-#   "wait_action": "std_wait.action",
-#   "low_bat_action": "std_low_bat.action",
-#   "слушайробот": "std_attention.action",
-#   "покажи левое ухо": "std_left_ear.action",
-#   "покажи правое ухо": "std_right_ear.action",
-#   "покажи уши": "std_ears.action",
-#   "сделай фото": "std_make_photo.action",
-#   "поздоровайся": "std_greeting.action",
-#   "следи за шариком": "std_ball_tracker.action",
-#   "покажи напряжение": "std_voltage.action"
-# }

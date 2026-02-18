@@ -22,6 +22,6 @@ class UsbCamConnector:
     def sub_image_raw_callback(self, msg:Image):
         self.image_raw = msg
 
-        self.controller.get_logger().info(f'Image! ')
+        # self.controller.get_logger().info(f'Image! ')
 
 
