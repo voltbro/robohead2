@@ -60,11 +60,13 @@
       {
         "std_wait":           "std_wait/action.py", 
         "std_low_bat":        "std_low_bat/action.py",
-        "слушай робот":       "std_attention/action.py",
+        "std_attention":       "std_attention/action.py",
         "поздоровайся":       "std_greeting/action.py",
         "покажи уши":         "std_ears/action.py",
         "следи за шариком" :  "std_ball_tracker/action.py",
         "сделай фото" :       "std_make_photo/action.py",
         "покажи левое ухо" :  "std_left_ear/action.py",
-        "покажи правое ухо" : "std_right_ear/action.py"
+        "покажи правое ухо" : "std_right_ear/action.py",
+        "громче" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_up/action.py",
+        "тише" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_down/action.py"
       }

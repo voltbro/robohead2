@@ -1,83 +1,39 @@
-import os
+#!/usr/bin/env python3
+"""
+std_wait action: Циклическая анимация ожидания + индикация светодиодами
+"""
+
 import time
+from typing import Optional
 import threading
-from robohead_interfaces.srv import PlayMedia, Move
-from robohead_controller.main import *
-robohead = None
-on_complete = None
 
-def run(robohead_:RoboheadController, cmd: str, cancel_event: threading.Event, on_complete_=None):
-    global robohead
-    global on_complete
-    robohead = robohead_
-    on_complete = on_complete_
+def run(controller, action_name: str="", cancel_event: threading.Event=None):
+    # foo(controller, action_name)
+    # if on_complete != None:
+    #     on_complete()
 
-    action_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(action_dir, 'ears.png')
-    audio_path = os.path.join(action_dir, 'ears.mp3')
 
-    robohead.get_logger().info(f"[std_greeting] Starting. Media: {image_path}, Audio: {audio_path}")
+    """
+    Основная функция действия.
+    
+    Args:
+        controller: Ссылка на контроллер (RoboheadController)
+        action_name: Имя действия ('std_wait')
+        cancel_event: threading.Event для проверки отмены
+        on_complete: Колбэк завершения (обычно None для циклических действий)
+    """
+    logger = controller.get_logger()
+    logger.info(f"[{action_name}] Starting wait animation")
 
-    # Шаг 1: media (async)
-    if cancel_event is not None and cancel_event.is_set():
-        robohead.get_logger().info("[std_greeting] Preempted before start")
-        return
+    controller.media_driver.play_media(cancel_event,
+        video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_left_ear/ears.png",
+        loop=True
+    )
+    controller.media_driver.play_media(cancel_event,
+        audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_left_ear/ears.mp3",
+        loop=False
+    )
 
-    req1 = PlayMedia.Request()
-    req1.path_to_media_file = image_path
-    req1.path_to_override_audio_file = audio_path
-    req1.is_block = False
-    req1.is_cycle = False
-    future1 = robohead.media_driver_srv_play_media.call_async(req1)
-    future1.add_done_callback(step2)
+    for k in range(5):
+        result = controller.ears_driver.set_angle(cancel_event, 90*(-1)**k, 0, 0.5)
 
-def step2(future):
-    # if cancel_event is not None and cancel_event.is_set():
-    req = Move.Request()
-    req.angle_a = -45
-    req.angle_b = 0
-    req.duration = 0.4
-    req.is_block = True
-
-    future = robohead.ears_driver_srv_ears_set_angle.call_async(req)
-    future.add_done_callback(step3)
-
-def step3(future):
-    # if cancel_event is not None and cancel_event.is_set():
-    req = Move.Request()
-    req.angle_a = 45
-    req.angle_b = 0
-    req.duration = 0.4
-    req.is_block = True
-
-    future = robohead.ears_driver_srv_ears_set_angle.call_async(req)
-    future.add_done_callback(step4)
-
-def step4(future):
-    # if cancel_event is not None and cancel_event.is_set():
-    req = Move.Request()
-    req.angle_a = -45
-    req.angle_b = 0
-    req.duration = 0.4
-    req.is_block = True
-
-    future = robohead.ears_driver_srv_ears_set_angle.call_async(req)
-    future.add_done_callback(step5)
-
-def step5(future):
-    # if cancel_event is not None and cancel_event.is_set():
-    req = Move.Request()
-    req.angle_a = 45
-    req.angle_b = 0
-    req.duration = 0.4
-    req.is_block = True
-
-    future = robohead.ears_driver_srv_ears_set_angle.call_async(req)
-    future.add_done_callback(step6)
-
-def step6(future):
-    if on_complete:
-        try:
-            on_complete()
-        except Exception as e:
-            robohead.get_logger().error(f"[std_greeting] on_complete failed: {e}")

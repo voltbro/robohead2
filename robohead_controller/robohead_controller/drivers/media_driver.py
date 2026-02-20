@@ -2,6 +2,7 @@ from robohead_interfaces.srv import PlayMedia, SimpleCommand
 from sensor_msgs.msg import Image
 import rclpy
 import sys
+import threading
 
 class MediaDriverConnector:
     
@@ -38,7 +39,7 @@ class MediaDriverConnector:
         self.controller.get_logger().info('media_driver connected')
         return True
     
-    def play_media(self, video_path:str="", audio_path:str="", loop:bool=False):
+    def play_media_spin(self, video_path:str="", audio_path:str="", loop:bool=False):
         req = PlayMedia.Request()
         req.path_to_video_file = video_path
         req.path_to_audio_file = audio_path
@@ -47,6 +48,41 @@ class MediaDriverConnector:
         future = self.srv_play_media.call_async(req)
         rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
         return future.result() if future.done() else None
+
+    def play_media(self, cancel_event: threading.Event, video_path:str="", audio_path:str="", loop:bool=False):
+        req = PlayMedia.Request()
+        req.path_to_video_file = video_path
+        req.path_to_audio_file = audio_path
+        req.loop = loop
+        
+        future = self.srv_play_media.call_async(req)
+        rate = self.controller.create_rate(5)
+        while not future.done() and not cancel_event.is_set():
+            rate.sleep()
+
+        return future.result() if future.done() else None
+
+    def set_volume(self, cancel_event: threading.Event, volume:int=50):
+        req = SimpleCommand.Request()
+        req.data = int(volume)
+ 
+        
+        future = self.srv_set_volume.call_async(req)
+        rate = self.controller.create_rate(5)
+        while not future.done() and not cancel_event.is_set():
+            rate.sleep()
+
+        return future.result() if future.done() else None
+
+    def get_volume(self, cancel_event: threading.Event):
+        req = SimpleCommand.Request()
+        
+        future = self.srv_get_volume.call_async(req)
+        rate = self.controller.create_rate(5)
+        while not future.done() and not cancel_event.is_set():
+            rate.sleep()
+
+        return future.result().data if future.done() else None
     
     def stream_publish(self, image_msg:Image):
         """Публикация кадра в видеопоток"""

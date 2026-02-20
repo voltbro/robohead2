@@ -11,10 +11,14 @@ class Commander():
     def queue_tick(self):
         """Обработчик команд"""
 
+        if len(self.controller.queue_fast_commands) > 0:
+            fast_command = self.controller.queue_fast_commands.pop(0)
+            self.controller.action_manager.execute_action(fast_command)
+
+
         if self.state == 'wait_wake_phrase':
             if len(self.controller.queue_wake_phrases) > 0:
                 self.controller.action_manager.execute_action("std_attention")
-
                 self.state = 'wait_command'
                 # self.controller.get_logger().info("comander 1")
                 self.controller.queue_wake_phrases.clear()
@@ -39,8 +43,9 @@ class Commander():
                 # self.controller.get_logger().info("comander 7")
 
                 if command != self.controller.speech_recognizer_asr.timeout_text:
-                    self.controller.action_manager.execute_action(command)
-                    pass
+                    self.controller.action_manager.execute_action(command, self.controller.action_manager.execute_action_std_wait)
+                else:
+                    self.controller.action_manager.execute_action("std_wait")
                 # self.controller.get_logger().info("comander 8")
                 
                 self.controller.queue_commands.clear()

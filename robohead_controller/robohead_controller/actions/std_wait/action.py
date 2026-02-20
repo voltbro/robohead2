@@ -7,12 +7,12 @@ import time
 from typing import Optional
 import threading
 
-def run(controller, action_name: str="", cancel_event: threading.Event=None, on_complete: Optional[callable]=None):
-    foo(controller, action_name)
-    if on_complete != None:
-        on_complete()
+def run(controller, action_name: str="", cancel_event: threading.Event=None):
+    # foo(controller, action_name)
+    # if on_complete != None:
+    #     on_complete()
 
-def foo(controller, action_name):
+
     """
     Основная функция действия.
     
@@ -25,11 +25,13 @@ def foo(controller, action_name):
     logger = controller.get_logger()
     logger.info(f"[{action_name}] Starting wait animation")
 
-    controller.media_driver.play_media(
+    controller.media_driver.play_media(cancel_event,
         video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_wait/wait_silence.mp4",
         loop=True
     )
-    controller.media_driver.play_media(
+    controller.media_driver.play_media(cancel_event,
         audio_path=controller.media_driver.stop_command,
         loop=False
     )
+    result = controller.ears_driver.set_angle(cancel_event, 0, 0, 1.0)
+

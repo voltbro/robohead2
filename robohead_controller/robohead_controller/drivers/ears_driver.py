@@ -23,7 +23,21 @@ class EarsDriverConnector:
         self.controller.get_logger().info('ears_driver connected')
         return True
     
-    def set_angle(self, left:int=0, right:int=0, duration:float=1.0, is_block:bool=True):
+    def set_angle(self, cancel_event, left:int=0, right:int=0, duration:float=1.0, is_block:bool=True):
+        req = Move.Request()
+        req.angle_a = int(left)
+        req.angle_b = int(right)
+        req.duration = float(duration)
+        req.is_block = bool(is_block)
+
+        future = self.srv_ears_set_angle.call_async(req)
+        rate = self.controller.create_rate(5)
+        while not future.done() and not cancel_event.is_set():
+            rate.sleep()
+
+        return future.result() if future.done() else None
+
+    def set_angle_spin(self, left:int=0, right:int=0, duration:float=1.0, is_block:bool=True):
         req = Move.Request()
         req.angle_a = left
         req.angle_b = right
