@@ -2,7 +2,9 @@
   ros__parameters:
     usb:
       vendor_id: 0x2886 # vendor_id производителя usb-устройства
-      product_id: 0x0018 # product_id usb-устройства
+      product_id: 0x001a # product_id usb-устройства (big ReSpeaker)
+      # product_id: 0x0018 # product_id usb-устройства (small ReSpeaker)
+
       timeout: 5000 # таймаут при передаче данных с/на ReSpeaker (milliseconds)
       sleep_reset: 6000 # время ожидания для переинициализации usb устройства после reset (milliseconds)
       sleep_stop: 100 # время ожидания при отключении программы (milliseconds)

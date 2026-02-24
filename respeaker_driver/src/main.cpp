@@ -205,7 +205,7 @@ public:
                 for (int i = 0; i < numDevices; i++)
                 {
                     const PaDeviceInfo *info = Pa_GetDeviceInfo(i);
-                    if (info && info->name && std::string(info->name).find("ReSpeaker") != std::string::npos)
+                    if (info && info->name && std::string(info->name).find("Mic Array") != std::string::npos)
                     {
                         device_index_ = i;
                         num_channels_ = info->maxInputChannels;

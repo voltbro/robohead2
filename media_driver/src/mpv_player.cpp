@@ -192,6 +192,12 @@ bool MPVPlayer::configure_audio_player()
     return false;
   }
 
+  if (mpv_set_option_string(mpv_handle_, "audio-device", "alsa") < 0)
+  {
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'audio-device=auto'", config_.name.c_str());
+    return false;
+  }
+
   if (mpv_set_option_string(mpv_handle_, "aid", "auto") < 0)
   {
     RCLCPP_FATAL(logger_, "[%s] Failed to set option 'aid=auto'", config_.name.c_str());
