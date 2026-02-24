@@ -4,6 +4,10 @@
     srv_set_volume_name: "set_volume"
     srv_get_volume_name: "get_volume"
     srv_play_media_name: "play_media"
+    srv_is_idle_audio_name: "is_idle/audio"
+    srv_is_idle_display_name: "is_idle/display"
+
+
     topic_stream_name: "stream"
     stop_command: "__STOP__"
 

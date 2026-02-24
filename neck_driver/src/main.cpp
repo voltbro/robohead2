@@ -2,15 +2,15 @@
 ros2 service call /neck_driver/neck_set_angle robohead_interfaces/srv/Move "angle_a: 0
 angle_b: 0
 duration: 1.0
-is_block: false"
 */
 
 /*
-colcon build --symlink-install --packages-select robohead_interfaces neck_driver 
+colcon build --symlink-install --packages-select robohead_interfaces neck_driver
 */
 
 #include <rclcpp/rclcpp.hpp>
 #include <robohead_interfaces/srv/move.hpp>
+#include <robohead_interfaces/srv/simple_command.hpp>
 #include <thread>
 #include <cmath>
 #include <chrono>
@@ -44,6 +44,7 @@ class NeckDriver : public rclcpp::Node
     std::array<double, 3> _goal_angles;
 
     rclcpp::Service<robohead_interfaces::srv::Move>::SharedPtr _srv_neck_set_angle;
+    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr _srv_is_idle;
     std::thread _trajectory_thread;
 
     struct CubicCoeffs
@@ -55,7 +56,9 @@ public:
     NeckDriver() : Node("neck_driver")
     {
         // Параметры
-        std::string srv_name = this->declare_parameter<std::string>("srv_neck_set_angle_name", "neck_set_angle");
+        std::string srv_neck_set_angle_name = this->declare_parameter<std::string>("srv_neck_set_angle_name", "neck_set_angle");
+        std::string srv_is_idle_name = this->declare_parameter<std::string>("srv_is_idle_name", "is_idle");
+
         int std_v = this->declare_parameter<int>("std_vertical_angle", 0);
         int std_h = this->declare_parameter<int>("std_horizontal_angle", 0);
         _i2c_address = this->declare_parameter<int>("i2c_address", 0x40);
@@ -86,8 +89,11 @@ public:
         }
 
         _srv_neck_set_angle = this->create_service<robohead_interfaces::srv::Move>(
-            srv_name,
-            std::bind(&NeckDriver::handle_service, this, std::placeholders::_1, std::placeholders::_2));
+            srv_neck_set_angle_name,
+            std::bind(&NeckDriver::handle_service_neck_set_angle, this, std::placeholders::_1, std::placeholders::_2));
+        _srv_is_idle = this->create_service<robohead_interfaces::srv::SimpleCommand>(
+            srv_is_idle_name,
+            std::bind(&NeckDriver::handle_service_is_idle, this, std::placeholders::_1, std::placeholders::_2));
 
         _trajectory_thread = std::thread(&NeckDriver::trajectory_planner, this);
 
@@ -196,14 +202,21 @@ private:
         }
     }
 
-    void handle_service(
+    void handle_service_is_idle(
+        const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
+        std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response)
+    {
+        std::lock_guard<std::mutex> lock(_goal_mutex);
+        response->data = (_current_angles[0] == _goal_angles[0] && _current_angles[1] == _goal_angles[1]);
+    }
+
+    void handle_service_neck_set_angle(
         const std::shared_ptr<robohead_interfaces::srv::Move::Request> request,
         std::shared_ptr<robohead_interfaces::srv::Move::Response> response)
     {
         int16_t vertical = request->angle_a;
         int16_t horizontal = request->angle_b;
         double duration = request->duration;
-        bool is_block = request->is_block;
 
         if (vertical < _v_from || vertical > _v_to)
         {
@@ -226,20 +239,6 @@ private:
             _goal_angles = {static_cast<double>(vertical), static_cast<double>(horizontal), duration};
         }
 
-        if (is_block)
-        {
-            rclcpp::Rate poll_rate(50);
-            while (rclcpp::ok())
-            {
-                {
-                    std::lock_guard<std::mutex> lock(_goal_mutex);
-                    if (_current_angles[0] == _goal_angles[0] && _current_angles[1] == _goal_angles[1])
-                        break;
-                }
-                poll_rate.sleep();
-            }
-        }
-
         response->data = 0;
     }
 
@@ -254,7 +253,7 @@ private:
         // Частота внутреннего тактирования PCA9685 — 25 МГц
         double prescale_val = 25000000.0 / (4096.0 * freq_hz) - 1.0;
         uint8_t prescale = static_cast<uint8_t>(std::round(prescale_val));
-        
+
         // Чтение текущего MODE1 (опционально)
         // Но проще просто записать 0x10 (sleep)
         i2c_write_byte(fd, 0x00, 0x10); // Sleep mode

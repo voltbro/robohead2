@@ -4,14 +4,18 @@
       srv_set_volume_name: "/robohead/media_driver/set_volume"
       srv_get_volume_name: "/robohead/media_driver/get_volume"
       srv_play_media_name: "/robohead/media_driver/play_media"
+      srv_is_idle_audio_name: "/robohead/media_driver/is_idle/audio"
+      srv_is_idle_display_name: "/robohead/media_driver/is_idle/display"
       topic_stream_name: "/robohead/media_driver/stream"
       stop_command: "__STOP__"
     
     ears_driver:
       srv_ears_set_angle_name: "/robohead/ears_driver/ears_set_angle"
+      srv_is_idle_name: "/robohead/ears_driver/is_idle"
 
     neck_driver:
       srv_neck_set_angle_name: "/robohead/neck_driver/neck_set_angle"
+      srv_is_idle_name: "/robohead/neck_driver/is_idle"
     
     respeaker_driver:
       topic_name:

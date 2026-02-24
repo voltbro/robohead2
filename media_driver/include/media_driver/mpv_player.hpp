@@ -41,6 +41,7 @@ namespace MPV
     bool play(const std::string &path, bool loop = false);
     bool update_frame(const std::string& path);
     bool stop();
+    bool is_idle() const;
     double set_volume(double volume); // 0.0-100.0
     double get_volume() const;
 

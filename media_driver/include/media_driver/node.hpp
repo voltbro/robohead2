@@ -25,6 +25,12 @@ private:
   void handle_get_volume(
     const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
     std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response);
+  void handle_is_idle_audio(
+    const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
+    std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response);
+  void handle_is_idle_display(
+    const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
+    std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response);
 
   std::unique_ptr<MPV::MPVPlayer> video_player_;
   std::unique_ptr<MPV::MPVPlayer> audio_player_;
@@ -35,5 +41,8 @@ private:
   rclcpp::Service<robohead_interfaces::srv::PlayMedia>::SharedPtr srv_play_;
   rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_set_vol_;
   rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_get_vol_;
+  rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_is_idle_audio_;
+  rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr srv_is_idle_display_;
+
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr sub_stream_;
 };

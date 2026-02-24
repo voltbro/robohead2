@@ -13,10 +13,14 @@ class ActionManager:
         self._action_lock = threading.Lock()
         self._current_action_name = None
     
-    def execute_action(self, name: str, on_complete=None):
+    def execute_fast_action(self, name: str, on_complete=None):
+        pass
+
+    def execute_action(self, name: str, on_complete=None, cancelling:bool=True):
         """Запуск действия с защитой от ошибок и зависаний"""
         # 1. Отменяем текущее действие с таймаутом
-        self._cancel_current_action(timeout_sec=1.0)
+        if cancelling:
+            self._cancel_current_action(timeout_sec=1.0)
         
         # 2. Создаём новое событие отмены
         cancel_event = threading.Event()
@@ -28,7 +32,7 @@ class ActionManager:
         # 3. Запускаем действие в изолированном потоке
         thread = threading.Thread(
             target=self._action_wrapper,
-            args=(name, cancel_event, on_complete),
+            args=(name, cancel_event,on_complete),
             daemon=True,
             name=f"Action-{name}"
         )
@@ -39,7 +43,7 @@ class ActionManager:
         
         self.controller.get_logger().info(f"▶ Started action: '{name}'")
     
-    def _action_wrapper(self, name: str, cancel_event: threading.Event, on_complete):
+    def _action_wrapper(self, name: str, cancel_event: threading.Event, on_complete:str=None):
         """Обёртка с полной изоляцией ошибок"""
         logger = self.controller.get_logger()
         logger.debug(f"[Action:{name}] Wrapper started")
@@ -65,14 +69,8 @@ class ActionManager:
             module.run(self.controller, name, cancel_event)
             
             logger.info(f"✓ Action '{name}' completed successfully")
-            
-            # Вызов колбэка при успешном завершении
-            if not cancel_event.is_set() and on_complete is not None:
-                logger.debug(f"[Action:{name}] Calling on_complete callback")
-                try:
-                    on_complete()
-                except Exception as e:
-                    logger.error(f"[Action:{name}] on_complete callback failed: {e}", exc_info=True)
+            if not cancel_event.is_set() and on_complete != None:
+                self._action_wrapper(on_complete, cancel_event, None)
         
         except Exception as e:
             # ЛОГИРУЕМ ОШИБКУ, НО НЕ ПАДАЕМ!
@@ -93,13 +91,13 @@ class ActionManager:
                 )
                 self._current_action_cancel.set()
             
-            # if self._current_action_thread is not None and self._current_action_thread.is_alive():
-            #     # Даём потоку время на корректное завершение
-            #     self._current_action_thread.join(timeout=timeout_sec)
-            #     if self._current_action_thread.is_alive():
-            #         self.controller.get_logger().warn(
-            #             f"⚠ Action thread did not terminate in {timeout_sec}s (will be abandoned)"
-            #         )
+            if self._current_action_thread is not None and self._current_action_thread.is_alive():
+                # Даём потоку время на корректное завершение
+                self._current_action_thread.join(timeout=timeout_sec)
+                if self._current_action_thread.is_alive():
+                    self.controller.get_logger().warn(
+                        f"⚠ Action thread did not terminate in {timeout_sec}s (will be abandoned)"
+                    )
     
     def _cleanup_action(self, name: str):
         """Очистка состояния после завершения действия"""

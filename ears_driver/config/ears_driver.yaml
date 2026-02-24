@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
     srv_ears_set_angle_name: "ears_set_angle"
+    srv_is_idle_name: "is_idle"
     std_left_angle: 0
     std_right_angle: 0
     i2c_address: 64  # 0x40 в десятичной

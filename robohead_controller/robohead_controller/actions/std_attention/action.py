@@ -36,25 +36,20 @@ def run(controller, action_name: str, cancel_event: threading.Event):
             time.sleep(check_interval)
             elapsed += check_interval
 
-# def foo(controller, action_name):
     logger = controller.get_logger()
     logger.info(f"[{action_name}] Starting greeting action")
 
-    result = controller.media_driver.play_media(cancel_event,
+    result = controller.media_driver.play_display(cancel_event,
     video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_attention/attention.mp4",
-    loop=True
+    loop=True, block=False
     )
-    result = controller.media_driver.play_media(cancel_event,
+    result = controller.media_driver.play_audio(cancel_event,
     audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_attention/attention.mp3",
-    loop=False
+    loop=False, block=False
     )
 
-    result = controller.ears_driver.set_angle(cancel_event, 0, 0, 1)
+    result = controller.ears_driver.set_angle(cancel_event, left=0, right=0, duration=1, block=True)
 
     sleep(5)
-    
-    # === ШАГ 3: Проверка результата ===
-    if cancel_event.is_set():
-        return
     
     logger.info(f"[{action_name}] Greeting completed successfully")

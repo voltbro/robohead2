@@ -444,3 +444,42 @@ bool MPVPlayer::stop() {
   
   return result;
 }
+
+bool MPVPlayer::is_idle() const {
+    if (!mpv_handle_) return false;
+
+    // 1. Проверяем: не в режиме ли ожидания (idle)
+    int64_t idle = 0;
+    if (mpv_get_property(mpv_handle_, "idle-active", MPV_FORMAT_FLAG, &idle) >= 0 && idle) {
+        // RCLCPP_DEBUG(logger_, "[%s] idle-active=yes → ничего не воспроизводится", name_.c_str());
+        return true;
+    }
+
+    // 2. Проверяем: не на паузе ли
+    int64_t paused = 0;
+    if (mpv_get_property(mpv_handle_, "pause", MPV_FORMAT_FLAG, &paused) >= 0 && paused) {
+        // RCLCPP_DEBUG(logger_, "[%s] pause=yes → воспроизведение на паузе", name_.c_str());
+        return true;
+    }
+
+    // 3. Проверяем: не достигнут ли конец файла
+    int64_t eof = 0;
+    if (mpv_get_property(mpv_handle_, "eof-reached", MPV_FORMAT_FLAG, &eof) >= 0 && eof) {
+        // RCLCPP_DEBUG(logger_, "[%s] eof-reached=yes → воспроизведение завершено", name_.c_str());
+        return true;
+    }
+
+    // 4. Дополнительно: проверяем, что файл вообще загружен
+    char* path = nullptr;
+    if (mpv_get_property(mpv_handle_, "path", MPV_FORMAT_STRING, &path) >= 0) {
+        bool has_path = (path && path[0] != '\0');
+        mpv_free(path);
+        if (!has_path) {
+            // RCLCPP_DEBUG(logger_, "[%s] path is empty → ничего не загружено", name_.c_str());
+            return true;
+        }
+    }
+
+    // Все проверки пройдены → активное воспроизведение
+    return false;
+}

@@ -15,7 +15,6 @@ def sleep(duration):
     while elapsed < duration and not cancel_event.is_set():
         time.sleep(check_interval)
         elapsed += check_interval
-# def ears_set_angle()
 
 def run(controller, action_name: str, cancel_event: threading.Event):
     """
@@ -29,16 +28,19 @@ def run(controller, action_name: str, cancel_event: threading.Event):
     logger = controller.get_logger()
     logger.info(f"[{action_name}] Starting greeting action")
 
-    result = controller.media_driver.play_media(cancel_event,
+    result = controller.media_driver.play_display(cancel_event,
     video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_greeting/greeting.mp4",
-    loop=True
+    loop=True, block=False
     )
-    result = controller.media_driver.play_media(cancel_event,
+    result = controller.media_driver.play_audio(cancel_event,
     audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_greeting/greeting.mp3",
-    loop=False
+    loop=False, block=False
     )
 
-    result = controller.ears_driver.set_angle(cancel_event, -90, 90, 2)
+    result = controller.ears_driver.set_angle(cancel_event, left=-90, right=90, duration=20, block=True)
+    logger.info(f"[{action_name}] result set angle: {result}")
+    res = controller.ears_driver.is_idle(cancel_event)
     
-    
+    logger.info(f"[{action_name}] idle: {res}")
+
     logger.info(f"[{action_name}] Greeting completed successfully")

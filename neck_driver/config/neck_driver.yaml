@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
     srv_neck_set_angle_name: "neck_set_angle"
+    srv_is_idle_name: "is_idle"
     std_vertical_angle: 0
     std_horizontal_angle: 0
     i2c_address: 64  # 0x40 в десятичной

@@ -12,7 +12,7 @@
     fast_commands:
       - 'громче'
       - 'тише'
-      - 'стоп'
+      # - 'стоп'
 
     ros:
       service_name:

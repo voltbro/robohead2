@@ -2,7 +2,6 @@
 ros2 service call /ears_driver/ears_set_angle robohead_interfaces/srv/Move "angle_a: 0
 angle_b: 0
 duration: 1.0
-is_block: true"
 */
 
 /*
@@ -11,6 +10,7 @@ colcon build --symlink-install --packages-select robohead_interfaces ears_driver
 
 #include <rclcpp/rclcpp.hpp>
 #include <robohead_interfaces/srv/move.hpp>
+#include <robohead_interfaces/srv/simple_command.hpp>
 #include <thread>
 #include <cmath>
 #include <chrono>
@@ -44,6 +44,8 @@ class EarsDriver : public rclcpp::Node
     std::array<double, 3> _goal_angles;
 
     rclcpp::Service<robohead_interfaces::srv::Move>::SharedPtr _srv_ears_set_angle;
+    rclcpp::Service<robohead_interfaces::srv::SimpleCommand>::SharedPtr _srv_is_idle;
+
     std::thread _trajectory_thread;
 
     struct CubicCoeffs
@@ -55,7 +57,9 @@ public:
     EarsDriver() : Node("ears_driver")
     {
         // Параметры
-        std::string srv_name = this->declare_parameter<std::string>("srv_ears_set_angle_name", "ears_set_angle");
+        std::string srv_ears_set_angle_name = this->declare_parameter<std::string>("srv_ears_set_angle_name", "ears_set_angle");
+        std::string srv_is_idle_name = this->declare_parameter<std::string>("srv_is_idle_name", "is_idle");
+
         int std_l = this->declare_parameter<int>("std_left_angle", 0);
         int std_r = this->declare_parameter<int>("std_right_angle", 0);
         _i2c_address = this->declare_parameter<int>("i2c_address", 0x40);
@@ -86,8 +90,12 @@ public:
         }
 
         _srv_ears_set_angle = this->create_service<robohead_interfaces::srv::Move>(
-            srv_name,
-            std::bind(&EarsDriver::handle_service, this, std::placeholders::_1, std::placeholders::_2));
+            srv_ears_set_angle_name,
+            std::bind(&EarsDriver::handle_service_ears_set_angle, this, std::placeholders::_1, std::placeholders::_2));
+
+        _srv_is_idle = this->create_service<robohead_interfaces::srv::SimpleCommand>(
+            srv_is_idle_name,
+            std::bind(&EarsDriver::handle_service_is_idle, this, std::placeholders::_1, std::placeholders::_2));
 
         _trajectory_thread = std::thread(&EarsDriver::trajectory_planner, this);
 
@@ -196,14 +204,23 @@ private:
         }
     }
 
-    void handle_service(
+    void handle_service_is_idle(
+        const std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Request> request,
+        std::shared_ptr<robohead_interfaces::srv::SimpleCommand::Response> response)
+    {
+        std::lock_guard<std::mutex> lock(_goal_mutex);
+        response->data = (_current_angles[0] == _goal_angles[0] && _current_angles[1] == _goal_angles[1]);
+        // RCLCPP_ERROR(this->get_logger(), "Idle cmp %d: Current %f %f, goal %f %f", res, _current_angles[0],
+                        // _current_angles[1], _goal_angles[0], _goal_angles[1]);
+    }
+
+    void handle_service_ears_set_angle(
         const std::shared_ptr<robohead_interfaces::srv::Move::Request> request,
         std::shared_ptr<robohead_interfaces::srv::Move::Response> response)
     {
         int16_t left = request->angle_a;
         int16_t right = request->angle_b;
         double duration = request->duration;
-        bool is_block = request->is_block;
 
         if (left < _l_from || left > _l_to)
         {
@@ -224,22 +241,6 @@ private:
         {
             std::lock_guard<std::mutex> lock(_goal_mutex);
             _goal_angles = {static_cast<double>(left), static_cast<double>(right), duration};
-        }
-
-        if (is_block)
-        {
-            rclcpp::Rate poll_rate(50);
-            while (rclcpp::ok())
-            {
-                {
-                    std::lock_guard<std::mutex> lock(_goal_mutex);
-                    if (_current_angles[0] == _goal_angles[0] && _current_angles[1] == _goal_angles[1])
-                        break;
-                }
-                if (!rclcpp::ok())
-                    return;
-                poll_rate.sleep();
-            }
         }
 
         response->data = 0;

@@ -8,11 +8,6 @@ from typing import Optional
 import threading
 
 def run(controller, action_name: str="", cancel_event: threading.Event=None):
-    # foo(controller, action_name)
-    # if on_complete != None:
-    #     on_complete()
-
-
     """
     Основная функция действия.
     
@@ -27,11 +22,11 @@ def run(controller, action_name: str="", cancel_event: threading.Event=None):
 
     controller.media_driver.play_media(cancel_event,
         video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_wait/wait_silence.mp4",
-        loop=True
-    )
-    controller.media_driver.play_media(cancel_event,
         audio_path=controller.media_driver.stop_command,
-        loop=False
+        loop=True, block=False
     )
-    result = controller.ears_driver.set_angle(cancel_event, 0, 0, 1.0)
+
+    result = controller.ears_driver.set_angle(cancel_event, left=0, right=0, duration=1.0, block=True)
+    logger.info(f"[{action_name}] Finish")
+
 

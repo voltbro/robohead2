@@ -15,6 +15,7 @@ from .core.commander import Commander
 
 import json
 import os
+import time
 
 class RoboheadController(Node):
     def __init__(self):
@@ -37,6 +38,7 @@ class RoboheadController(Node):
         self.queue_wake_phrases = list()
         self.queue_commands = list()
         self.queue_fast_commands = list()
+        self.rate_ = self.create_rate(100)
         
         # Инициализация драйверов
         self.media_driver = MediaDriverConnector(self)
@@ -68,6 +70,12 @@ class RoboheadController(Node):
         self.usb_cam.connect()
         
         self.get_logger().info("All drivers connected successfully")
+    
+    def sleep(self, cancel_event, duration:float):
+        start_time = self.get_clock().now()
+
+        while not cancel_event.is_set() and (self.get_clock().now() - start_time).nanoseconds / 1e9 < duration:
+            self.rate_.sleep()
     
     def start(self):
         """Запуск основной логики после подключения"""

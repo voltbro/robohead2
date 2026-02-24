@@ -20,15 +20,15 @@ def run(controller, action_name: str="", cancel_event: threading.Event=None):
     logger = controller.get_logger()
     logger.info(f"[{action_name}] Starting wait animation")
 
-    controller.media_driver.play_media(cancel_event,
+    controller.media_driver.play_display(cancel_event,
         video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_ears/ears.png",
-        loop=True
+        loop=True, block=False
     )
-    controller.media_driver.play_media(cancel_event,
+    controller.media_driver.play_audio(cancel_event,
         audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_ears/ears.mp3",
-        loop=False
+        loop=False, block=False
     )
 
     for k in range(5):
-        result = controller.ears_driver.set_angle(cancel_event, 90*(-1)**k, 90*(-1)**(k+1), 0.5)
-        logger.info(f"[{action_name}]  k:{k}")
+        result = controller.ears_driver.set_angle(cancel_event, left=90*(-1)**k, right=90*(-1)**(k+1), duration=0.5, block=True)
+        # logger.info(f"[{action_name}]  k:{k}")

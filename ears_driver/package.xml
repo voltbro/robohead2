@@ -4,7 +4,7 @@
   <name>ears_driver</name>
   <version>2.0.0</version>
   <description>Package for robohead 2 ears control (based on servos, controlls by PCA9685)</description>
-  <maintainer email="kolesnikovpi2005@mail.ru">pi</maintainer>
+  <maintainer email="kolesnikovpi2005@mail.ru">kolezo-pi</maintainer>
   <license>TODO</license>
 
   <depend>robohead_interfaces</depend>

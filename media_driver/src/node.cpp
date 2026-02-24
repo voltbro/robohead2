@@ -29,6 +29,10 @@ MediaDriverNode::MediaDriverNode()
         std::string srv_set_volume_name = this->declare_parameter<std::string>("srv_set_volume_name", "set_volume");
         std::string srv_get_volume_name = this->declare_parameter<std::string>("srv_get_volume_name", "get_volume");
         std::string srv_play_media_name = this->declare_parameter<std::string>("srv_play_media_name", "play_media");
+
+        std::string srv_is_idle_audio_name = this->declare_parameter<std::string>("srv_is_idle_audio_name", "is_idle/audio");
+        std::string srv_is_idle_display_name = this->declare_parameter<std::string>("srv_is_idle_dispaly_name", "is_idle/display");
+
         std::string topic_stream_name = this->declare_parameter<std::string>("topic_stream_name", "stream");
 
         MPV::Config video_cfg;
@@ -69,6 +73,14 @@ MediaDriverNode::MediaDriverNode()
         srv_get_vol_ = this->create_service<SimpleCommand>(
             srv_get_volume_name,
             std::bind(&MediaDriverNode::handle_get_volume, this, std::placeholders::_1, std::placeholders::_2));
+
+
+        srv_is_idle_audio_ = this->create_service<SimpleCommand>(
+            srv_is_idle_audio_name,
+            std::bind(&MediaDriverNode::handle_is_idle_audio, this, std::placeholders::_1, std::placeholders::_2));
+        srv_is_idle_display_ = this->create_service<SimpleCommand>(
+            srv_is_idle_display_name,
+            std::bind(&MediaDriverNode::handle_is_idle_display, this, std::placeholders::_1, std::placeholders::_2));
 
         // Подписка на видеопоток
         sub_stream_ = this->create_subscription<sensor_msgs::msg::Image>(
@@ -193,4 +205,20 @@ MediaDriverNode::~MediaDriverNode()
     {
         double vol = audio_player_->get_volume(); // Берём громкость аудио-плеера
         response->data = static_cast<int16_t>(vol);
+    }
+
+    void MediaDriverNode::handle_is_idle_audio(
+        const std::shared_ptr<SimpleCommand::Request>,
+        std::shared_ptr<SimpleCommand::Response> response)
+    {
+        bool is_idle = audio_player_->is_idle();
+        response->data = static_cast<int16_t>(is_idle);
+    }
+
+    void MediaDriverNode::handle_is_idle_display(
+        const std::shared_ptr<SimpleCommand::Request>,
+        std::shared_ptr<SimpleCommand::Response> response)
+    {
+        bool is_idle = video_player_->is_idle();
+        response->data = static_cast<int16_t>(is_idle);
     }
