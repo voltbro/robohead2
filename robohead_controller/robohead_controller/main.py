@@ -8,13 +8,11 @@ def main(args=None):
     
     try:
         controller = RoboheadController()
-        time.sleep(1)  # Небольшая пауза для инициализации
+        # time.sleep(1)  # Небольшая пауза для инициализации
         
         # Подключение всех драйверов
         controller.connect_all_drivers()
-        
-        # Запуск основной логики
-        controller.start()
+        controller.startup_timer = controller.create_timer(0.1, controller.start)
         
         # Запуск многопоточного исполнителя
         executor = rclpy.executors.MultiThreadedExecutor()

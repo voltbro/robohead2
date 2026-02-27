@@ -108,12 +108,3 @@ class ActionManager:
                 self._current_action_thread = None
                 self._current_action_name = None
                 self.controller.get_logger().debug(f"[Action:{name}] State cleaned up")
-    
-    def execute_action_std_wait(self):
-        """Запуск действия ожидания с защитой от рекурсии"""
-        # Предотвращаем бесконечную рекурсию при вызове из on_complete
-        if self._current_action_name == "std_wait":
-            self.controller.get_logger().debug("std_wait already running, skipping")
-            return
-        
-        self.execute_action("std_wait", on_complete=None)

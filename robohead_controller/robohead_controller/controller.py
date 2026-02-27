@@ -78,21 +78,10 @@ class RoboheadController(Node):
             self.rate_.sleep()
     
     def start(self):
-        """Запуск основной логики после подключения"""
-        # Пример: воспроизведение приветственного видео
-        self.media_driver.play_media_spin(
-            video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/hello.mp4",
-            audio_path="",
-            loop=True
-        )
-        self.media_driver.play_media_spin(
-            video_path="",
-            audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/start.mp3",
-            loop=False
-        )
+        self.startup_timer.cancel()
 
-        # self.ears_driver.set_angle(-90, 30)
+        self.action_manager.execute_action("std_startup", None, False)
 
         self.speech_recognizer_kws.set_mode(1)
-        
+
         self.get_logger().info("Controller started and ready")

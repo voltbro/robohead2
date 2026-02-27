@@ -62,6 +62,7 @@
     # если путь относительный, то поиск идет в robohead_controller/robohead_controller/actions
     actions_match: >
       {
+        "std_startup" :       "std_startup/action.py",
         "std_wait":           "std_wait/action.py", 
         "std_low_bat":        "std_low_bat/action.py",
         "std_attention":       "std_attention/action.py",

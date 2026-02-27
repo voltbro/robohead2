@@ -49,15 +49,16 @@ class MediaDriverConnector:
         self.controller.get_logger().info('media_driver connected')
         return True
     
-    def play_media_spin(self, video_path:str="", audio_path:str="", loop:bool=False):
-        req = PlayMedia.Request()
-        req.path_to_video_file = video_path
-        req.path_to_audio_file = audio_path
-        req.loop = loop
+    # def play_media_spin(self, video_path:str="", audio_path:str="", loop:bool=False, block:bool=False):
+    #     req = PlayMedia.Request()
+    #     req.path_to_video_file = video_path
+    #     req.path_to_audio_file = audio_path
+    #     req.loop = loop
         
-        future = self.srv_play_media.call_async(req)
-        rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
-        return future.result() if future.done() else None
+    #     future = self.srv_play_media.call_async(req)
+    #     rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
+
+    #     return future.result() if future.done() else None
 
     def play_media(self, cancel_event: threading.Event, video_path:str="", audio_path:str="", loop:bool=False, block:bool=True):
         req = PlayMedia.Request()
@@ -94,7 +95,7 @@ class MediaDriverConnector:
         req.path_to_video_file = video_path
         req.path_to_audio_file = ""
         req.loop = loop
-        
+
         future = self.srv_play_media.call_async(req)
         while not future.done() and not cancel_event.is_set():
             self.controller.rate_.sleep()
