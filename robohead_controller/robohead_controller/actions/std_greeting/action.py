@@ -37,10 +37,6 @@ def run(controller, action_name: str, cancel_event: threading.Event):
     loop=False, block=False
     )
 
-    result = controller.ears_driver.set_angle(cancel_event, left=-90, right=90, duration=2, block=True)
-    logger.info(f"[{action_name}] result set angle: {result}")
-    res = controller.ears_driver.is_idle(cancel_event)
-    
-    logger.info(f"[{action_name}] idle: {res}")
-
-    logger.info(f"[{action_name}] Greeting completed successfully")
+    controller.ears_driver.set_angle(cancel_event, left=-90, right=90, duration=1.5, block=False)
+    for k in range(5):
+        controller.neck_driver.set_angle(cancel_event, horizontal=0, vertical=15 + 10 * (-1)**k, duration=0.3, block=True)

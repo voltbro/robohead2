@@ -74,7 +74,7 @@ def generate_launch_description():
                             'video_device': '/dev/video0',
                             'image_width': 640,
                             'image_height': 480,
-                            'framerate': 5.0,
+                            'framerate': 30.0,
                             'pixel_format': 'mjpeg2rgb',      # ← MJPEG вместо yuyv, mjpeg2rgb, raw_mjpeg, yuyv2rgb
                             # 'color_format': 'rgb24',
                             'io_method': 'mmap',

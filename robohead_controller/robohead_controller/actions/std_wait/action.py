@@ -26,7 +26,9 @@ def run(controller, action_name: str="", cancel_event: threading.Event=None):
         loop=True, block=False
     )
 
-    result = controller.ears_driver.set_angle(cancel_event, left=0, right=0, duration=1.0, block=True)
+    controller.ears_driver.set_angle(cancel_event, left=0, right=0, duration=1.0, block=False)
+    controller.neck_driver.set_angle(cancel_event, horizontal=0, vertical=0, duration=1.0, block=True)
+
     logger.info(f"[{action_name}] Finish")
 
 

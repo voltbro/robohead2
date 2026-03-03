@@ -38,17 +38,6 @@ class NeckDriverConnector:
 
         return future.result().data if future.done() else None
 
-    def set_angle_spin(self, vertical:int=0, horizontal:int=0, duration:float=1.0, is_block:bool=True):
-        req = Move.Request()
-        req.angle_a = vertical
-        req.angle_b = horizontal
-        req.duration = duration
-        req.is_block = is_block
-
-        future = self.srv_neck_set_angle.call_async(req)
-        rclpy.spin_until_future_complete(self.controller, future, timeout_sec=self.controller.wait_timeout)
-        return future.result() if future.done() else None
-
     def set_angle(self, cancel_event, vertical:int=0, horizontal:int=0, duration:float=1.0, block:bool=True):
         req = Move.Request()
         req.angle_a = int(vertical)
