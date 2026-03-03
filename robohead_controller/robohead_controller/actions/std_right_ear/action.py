@@ -15,5 +15,5 @@ def run(controller, action_name: str="", cancel_event: threading.Event=None):
 
     controller.neck_driver.set_angle(cancel_event, horizontal=15, vertical=15, duration=0.5, block=False)
     for k in range(5):
-        result = controller.ears_driver.set_angle(cancel_event, left=0, right=80*(-1)**k, duration=0.5, block=True)
+        result = controller.ears_driver.set_angle(cancel_event, left=0, right=90*(-1)**k, duration=0.5, block=True)
 

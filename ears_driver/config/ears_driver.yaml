@@ -9,8 +9,8 @@
     servo_2_channel: 6 # right
     servo_1_coef: 0 # left
     servo_2_coef: 0 # right
-    servo_pulse_low: 120
-    servo_pulse_high: 550
+    servo_pulse_low: 130
+    servo_pulse_high: 530
     constraints:
       l_from: -90
       l_to: 90

@@ -29,10 +29,11 @@ class SpeechRecognizer(Node):
         topic_name_commands = self.declare_parameter('ros.topic_name.commands', 'commands').value
         topic_name_audio_input = self.declare_parameter('ros.topic_name.audio_input', '/respeaker_driver/audio/main').value
      
-        self.timeout = self.declare_parameter('timeout', 10.0).value  # например, 5 секунд
-        # self.get_logger().error(f"SPEEEECH RECOGNIZER: {self.timeout}")
+        t_start_max = self.declare_parameter('t_start_max', 5.0).value # Начали распознавание и ждём это количество сек, чтоб принять решение что тишина
+        t_end = self.declare_parameter('t_end', 0.8).value  # Кол-во секунд после последнего слова, после которого считаем что фраза окончена
+        t_max = self.declare_parameter('t_max', 6.0).value # Максимальная длительность одной фразы
+        # self.get_logger().error(f"SPEEEECH RECOGNIZER: {t_start_max}, {t_end}, {t_max}")
 
-        self.last_result_time = None
         self.timeout_text = self.declare_parameter('timeout_text', "__TIMEOUT__").value  # например, 5 секунд
       
         if not os.path.exists(model_path):
@@ -47,11 +48,7 @@ class SpeechRecognizer(Node):
         self.grammar_rec = KaldiRecognizer(self.model, sample_rate)
         cmd_grammar_json = json.dumps(self.commands, ensure_ascii=False)
         self.grammar_rec.SetGrammar(cmd_grammar_json)
-        t_start_max = 5.0 # Начали распознавание и ждём это количество сек, чтоб принять решение что тишина
-        t_end = 0.8 # Кол-во секунд после последнего слова, после которого считаем что фраза окончена
-        t_max = 10.0 # Максимальная длительность одной фразы
         self.grammar_rec.SetEndpointerDelays(t_start_max, t_end, t_max)
-        # self.grammar_rec.SetEndpointerDelays(t_start_max=0.5, t_end=0.3, t_max=10.0)
 
         self.free_rec = KaldiRecognizer(self.model, sample_rate)  # без грамматики
 
@@ -71,8 +68,6 @@ class SpeechRecognizer(Node):
     def set_mode_callback(self, request, response):
         mode = request.data
         if mode in (0, 1, 2):
-            self.last_result_time = self.get_clock().now()
-
             self.current_mode = mode
             response.data = mode
             mode_names = {0:"Off", 1: "Grammar (Vosk)", 2: "Free (Vosk)"}
@@ -91,17 +86,10 @@ class SpeechRecognizer(Node):
         data = bytes(msg.data)
 
         if self.current_mode == 1:  # Grammar
-            is_accept = self.grammar_rec.AcceptWaveform(data)
-            is_timeout = (self.get_clock().now() - self.last_result_time ).nanoseconds / 1e9 > self.timeout
-            if is_accept:
-                self.get_logger().warn(f"SPEEEECH RECOGNI ASR: {is_accept}, {is_timeout}")
-                
+
+            if self.grammar_rec.AcceptWaveform(data):
                 partial_result = json.loads(self.grammar_rec.PartialResult()).get('partial', '').strip().lower()
                 final_result = json.loads(self.grammar_rec.Result()).get('text', '').strip().lower()
-
-                self.get_logger().warn(f"SPEEEECH RECOGNI ASR partial: {partial_result}")
-                self.get_logger().warn(f"SPEEEECH RECOGNI ASR final: {final_result}")
-
 
                 final_phrase = ''
                 partial_phrase = ''
@@ -126,8 +114,6 @@ class SpeechRecognizer(Node):
 
                 self.current_mode = 0
                 self.get_logger().info(f"Mode switched to Off")
-
-                self.last_result_time = self.get_clock().now()
 
         elif self.current_mode == 2:  # Free #TODO
             if self.free_rec.AcceptWaveform(data):
