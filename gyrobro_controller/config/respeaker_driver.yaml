@@ -1,54 +1,86 @@
 /**:
   ros__parameters:
     usb:
-      vendor_id: 0x2886 # vendor_id производителя usb-устройства
-      product_id: 0x0018 # product_id usb-устройства
-      timeout: 5000 # таймаут при передаче данных с/на ReSpeaker (milliseconds)
-      sleep_reset: 500 # время ожидания для переинициализации usb устройства после reset (milliseconds)
-      sleep_stop: 100 # время ожидания при отключении программы (milliseconds)
+      vendor_id: 0        # 0 = авто (0x2886). Vendor ID производителя USB-устройства
+      product_id: 0        # 0 = авто (перебор: 0x001A → 0x0018)
+                           #   0x0018 = XVF3000 (маленький ReSpeaker)
+                           #   0x001A = XVF3800 (большой ReSpeaker)
+      timeout: 5000        # таймаут при передаче данных с/на ReSpeaker (milliseconds)
+      sleep_reset: 10000   # время ожидания для переинициализации USB после reset (milliseconds)
+      sleep_stop: 100      # время ожидания при отключении программы (milliseconds)
 
-    audio: # используется формат pyaudio.paInt16
-      sample_rate: 16000 # частота дискретизации сигнала с микрофона
-      frames_per_buffer: 1024 # количество frame в буффере, то же самое что:chunk, period, framebuffer и т.д.
-      count_of_channels: 6 # количество каналов ReSpeaker (зависит от прошивки, обычно 6)
-      main_channel: 0 # номер "основного" канала (обычно именно он используется другими модулями) - актуально только для 6 каналов (для 1 канала поставить равным 0)
-      
+    audio:
+      sample_rate: 16000          # частота дискретизации сигнала с микрофона (Hz)
+      frames_per_buffer: 1024     # количество frame в буфере (chunk / period / framebuffer)
+      count_of_channels: 0        # 0 = автоопределение по устройству (макс. 6)
+                                  # Явно: 1..6 — количество каналов ReSpeaker
+      main_channel: 0             # номер "основного" канала (используется другими модулями)
+                                  # Для 1 канала = 0
+      device_name_primary: "ReSpeaker"   # имя аудиоустройства для поиска (PortAudio)
+      device_name_fallback: "Mic Array"  # запасное имя (после USB reset имя может измениться)
+
+    doa_yaw_offset: 0.0  # смещает нулевое положение doa_angle (градусы)
+                           #   >0 — против часовой стрелки
+                           #   <0 — по часовой стрелке
+
     ros:
       topic_name:
-        audio_main: "~/audio/main"
-        audio_channel_0: "~/audio/channel_0"
-        audio_channel_1: "~/audio/channel_1"
-        audio_channel_2: "~/audio/channel_2"
-        audio_channel_3: "~/audio/channel_3"
-        audio_channel_4: "~/audio/channel_4"
-        audio_channel_5: "~/audio/channel_5"
-        doa: "~/doa"
-        set_color_manual: "~/set_color_manual"
+        audio_main: "audio/main"
+        audio_channel_0: "audio/channel_0"
+        audio_channel_1: "audio/channel_1"
+        audio_channel_2: "audio/channel_2"
+        audio_channel_3: "audio/channel_3"
+        audio_channel_4: "audio/channel_4"
+        audio_channel_5: "audio/channel_5"
+        doa: "doa"
+        set_color_manual: "set_color_manual"
       service_name:
-        set_brightness: "~/set_brightness"
-        set_color_all: "~/set_color_all"
-        set_color_palette: "~/set_color_palette"
-        set_mode: "~/set_mode"
+        set_brightness: "set_brightness"
+        set_color_all: "set_color_all"
+        set_color_palette: "set_color_palette"
+        set_mode: "set_mode"
 
-    # led:
-    #   brightness: 10 # 0..31 яркость светодиодного кольца
-
-    #   palette:
-    #     color_a: # цвет светодиода, указывающего направление свечения
-    #       - 255 # R-red
-    #       - 0 # G-green
-    #       - 0 # B-blue
-    #     color_b: # цвет светодиодов заливки
-    #       - 255 # R-red
-    #       - 255 # G-green
-    #       - 255 # B-blue
-    #   mode: 1
-    # # modes: 
-    # # 0 - off
-    # # 1 - trace
-    # # 2 - listen
-    # # 3 - wait
-    # # 4 - speak
-    # # 5 - spin
-
-    doa_yaw_offset: -90 # смещает нулевое положение doa_angle на doa_yaw_offset градусов. Значение >0 - против часовой стрелки, значение <0 - по часовой стрелке
+    # ──────────────────────────────────────────────
+    #  Справка по режимам LED (set_mode)
+    # ──────────────────────────────────────────────
+    #
+    #  XVF3000:                    XVF3800:
+    #    0 — off                     0 — off
+    #    1 — trace                   1 — doa
+    #    2 — listen                  2 — rainbow
+    #    3 — wait                    3 — single color
+    #    4 — speak                   4 — breathe
+    #    5 — spin                    5 — ring
+    #
+    # ──────────────────────────────────────────────
+    #  Справка по яркости (set_brightness)
+    # ──────────────────────────────────────────────
+    #
+    #  XVF3000: 0..31
+    #  XVF3800: 0..255
+    #
+    # ──────────────────────────────────────────────
+    #  Автоопределение версии
+    # ──────────────────────────────────────────────
+    #
+    #  Если vendor_id и product_id = 0:
+    #    Драйвер автоматически пробует:
+    #      1) VID=0x2886 PID=0x001A → XVF3800
+    #      2) VID=0x2886 PID=0x0018 → XVF3000
+    #    Первое найденное устройство используется.
+    #
+    #  Если product_id задан явно:
+    #    Используется только указанный PID.
+    #
+    # ──────────────────────────────────────────────
+    #  Автоопределение каналов
+    # ──────────────────────────────────────────────
+    #
+    #  Если count_of_channels = 0:
+    #    Количество каналов определяется по устройству
+    #    (maxInputChannels из PortAudio, макс. 6).
+    #    Топики channel_0..channel_N создаются автоматически.
+    #
+    #  Если count_of_channels > 0:
+    #    Используется указанное значение (с проверкой ≤ hw).
+    #

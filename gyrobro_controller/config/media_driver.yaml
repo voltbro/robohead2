@@ -1,8 +1,11 @@
-/speakers_driver:
+/**:
   ros__parameters:
 
-    srv_set_volume_name: "~/set_volume"
-    srv_get_volume_name: "~/get_volume"
-    srv_play_audio_name: "~/play_audio"
+    srv_set_volume_name: "set_volume"
+    srv_get_volume_name: "get_volume"
+    srv_play_media_name: "play_media"
+    topic_stream_name: "stream"
+    stop_command: "__STOP__"
 
-    default_volume: 40
+    display_rotate: "270" # поворот картинки дисплея, 0-359 градусов
+    default_volume: 60.0

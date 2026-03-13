@@ -8,6 +8,7 @@
   <author email="kolesnikovpi2005@mail.ru">kolezo-pi</author>
   <license>TODO</license>
 
+  
   <depend>robohead_interfaces</depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
@@ -17,7 +18,8 @@
   <build_depend>portaudio-dev</build_depend>
   <exec_depend>libusb</exec_depend>
   <exec_depend>portaudio</exec_depend>
-
+  <exec_depend>rclpy</exec_depend>
+  
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

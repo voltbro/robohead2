@@ -1,0 +1,77 @@
+/**:
+  ros__parameters:
+    media_driver:
+      srv_set_volume_name: "/robohead/media_driver/set_volume"
+      srv_get_volume_name: "/robohead/media_driver/get_volume"
+      srv_play_media_name: "/robohead/media_driver/play_media"
+      srv_is_idle_audio_name: "/robohead/media_driver/is_idle/audio"
+      srv_is_idle_display_name: "/robohead/media_driver/is_idle/display"
+      topic_stream_name: "/robohead/media_driver/stream"
+      stop_command: "__STOP__"
+    
+    ears_driver:
+      srv_ears_set_angle_name: "/robohead/ears_driver/ears_set_angle"
+      srv_is_idle_name: "/robohead/ears_driver/is_idle"
+
+    neck_driver:
+      srv_neck_set_angle_name: "/robohead/neck_driver/neck_set_angle"
+      srv_is_idle_name: "/robohead/neck_driver/is_idle"
+    
+    respeaker_driver:
+      topic_name:
+        audio_main: "/robohead/respeaker_driver/audio/main"
+        audio_channel_0: "/robohead/respeaker_driver/audio/channel_0"
+        audio_channel_1: "/robohead/respeaker_driver/audio/channel_1"
+        audio_channel_2: "/robohead/respeaker_driver/audio/channel_2"
+        audio_channel_3: "/robohead/respeaker_driver/audio/channel_3"
+        audio_channel_4: "/robohead/respeaker_driver/audio/channel_4"
+        audio_channel_5: "/robohead/respeaker_driver/audio/channel_5"
+        doa: "/robohead/respeaker_driver/doa"
+        set_color_manual: "/robohead/respeaker_driver/set_color_manual"
+      service_name:
+        set_brightness: "/robohead/respeaker_driver/set_brightness"
+        set_color_all: "/robohead/respeaker_driver/set_color_all"
+        set_color_palette: "/robohead/respeaker_driver/set_color_palette"
+        set_mode: "/robohead/respeaker_driver/set_mode"
+    
+    sensor_driver:
+      topic_name: "/robohead/sensor_driver/battery"
+    
+    speech_recognizer_asr:
+      timeout_text: '__TIMEOUT__'
+      service_name:
+        set_mode: '/robohead/speech_recognizer/asr/set_mode'
+      topic_name:
+        commands: '/robohead/speech_recognizer/asr/commands'
+
+    speech_recognizer_kws:
+      service_name:
+        set_mode: '/robohead/speech_recognizer/kws/set_mode'
+      topic_name:
+        wake_phrases: '/robohead/speech_recognizer/kws/wake_phrases'
+        fast_commands: '/robohead/speech_recognizer/kws/fast_commands'
+    
+    usb_cam:
+      topic_name_image_raw: "/robohead/usb_cam/image_raw"
+
+    low_voltage_threshold: 6.3
+    low_voltage_hysteresis: 0.5
+    wait_timeout: 1.0
+
+    # в actions_match МОЖНО использовать абсолютные пути до файлов!
+    # если путь относительный, то поиск идет в robohead_controller/robohead_controller/actions
+    actions_match: >
+      {
+        "std_startup" :       "std_startup/action.py",
+        "std_wait":           "std_wait/action.py", 
+        "std_low_bat":        "std_low_bat/action.py",
+        "std_attention":       "std_attention/action.py",
+        "поздоровайся":       "std_greeting/action.py",
+        "покажи уши":         "std_ears/action.py",
+        "следи за шариком" :  "std_ball_tracker/action.py",
+        "сделай фото" :       "std_make_photo/action.py",
+        "покажи левое ухо" :  "std_left_ear/action.py",
+        "покажи правое ухо" : "std_right_ear/action.py",
+        "громче" : "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/gyrobro_controller/fast_actions/std_volume_up/action.py",
+        "тише" : "/home/pi/robohead_ws/src/robohead2/gyrobro_controller/gyrobro_controller/fast_actions/std_volume_down/action.py"
+      }
