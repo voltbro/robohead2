@@ -22,7 +22,7 @@ class AudioToWav(Node):
     def __init__(self):
         super().__init__("audio_to_wav")
 
-        self.topic_    = self.declare_parameter("topic", "audio/main").value
+        self.topic_    = self.declare_parameter("topic", "/respeaker_driver/audio/main").value
         self.filename_ = self.declare_parameter("filename", "output.wav").value
         self.duration_ = self.declare_parameter("duration", 5.0).value
         self.rate_     = self.declare_parameter("sample_rate", 16000).value

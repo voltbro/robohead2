@@ -12,4 +12,4 @@
     stop_command: "__STOP__"
 
     display_rotate: "270" # поворот картинки дисплея, 0-359 градусов
-    default_volume: 25.0
+    default_volume: 50.0
