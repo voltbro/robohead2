@@ -12,9 +12,6 @@ class ActionManager:
         self._current_action_thread = None
         self._action_lock = threading.Lock()
         self._current_action_name = None
-    
-    def execute_fast_action(self, name: str, on_complete=None):
-        pass
 
     def execute_action(self, name: str, on_complete=None, cancelling:bool=True):
         """Запуск действия с защитой от ошибок и зависаний"""
