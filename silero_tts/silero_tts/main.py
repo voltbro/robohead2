@@ -145,13 +145,22 @@ class SileroTtsNode(Node):
                     f'Cannot create directory {out_dir}: {e}')
                 return None
 
-        audio = self.model.apply_tts(
-            text=text,
-            speaker=speaker,
-            sample_rate=self.sample_rate,
-            put_accent=put_accent,
-            put_yo=put_yo
-        )
+        is_ssml = text.strip().startswith('<speak>')
+
+        if is_ssml:
+            audio = self.model.apply_tts(
+                ssml_text=text,
+                speaker=speaker,
+                sample_rate=self.sample_rate
+            )
+        else:
+            audio = self.model.apply_tts(
+                text=text,
+                speaker=speaker,
+                sample_rate=self.sample_rate,
+                put_accent=put_accent,
+                put_yo=put_yo
+            )
 
         audio_np = audio.cpu().numpy()
         audio_int16 = np.clip(
