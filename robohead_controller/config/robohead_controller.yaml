@@ -53,6 +53,9 @@
     
     usb_cam:
       topic_name_image_raw: "/robohead/usb_cam/image_raw"
+  
+    silero_tts:
+      srv_speak_name: "/robohead/silero_tts/speak"
 
     low_voltage_threshold: 6.3
     low_voltage_hysteresis: 0.5

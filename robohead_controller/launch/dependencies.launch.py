@@ -16,6 +16,18 @@ def generate_launch_description():
             actions=[
                 PushRosNamespace('robohead'),
 
+                # === silero_tts ===
+                Node(
+                    package='silero_tts',
+                    executable='silero_tts_node',  # ← должно быть объявлено в setup.py как console_script
+                    name='silero_tts_node',
+                    output='screen',
+                    namespace='silero_tts',
+                    parameters=[
+                        PathJoinSubstitution([pkg_robohead_controller, 'config','silero_tts.yaml'])
+                    ]
+                ),
+
                 # === media_driver ===
                 Node(
                     package='media_driver',

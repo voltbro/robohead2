@@ -8,6 +8,7 @@ from .drivers.respeaker_driver import RespeakerDriverConnector
 from .drivers.speech_recognizer_asr import SpeechRecognizerAsrConnector
 from .drivers.speech_recognizer_kws import SpeechRecognizerKwsConnector
 from .drivers.usb_cam import UsbCamConnector
+from .drivers.silero_tts import SileroTTSConnector
 
 from .core.battery_monitor import BatteryMonitor
 from .core.action_manager import ActionManager
@@ -49,6 +50,7 @@ class RoboheadController(Node):
         self.speech_recognizer_asr = SpeechRecognizerAsrConnector(self)
         self.speech_recognizer_kws = SpeechRecognizerKwsConnector(self)
         self.usb_cam = UsbCamConnector(self)
+        self.silero_tts = SileroTTSConnector(self)
 
         # Инициализация компонентов
         self.action_manager = ActionManager(self)
@@ -68,6 +70,7 @@ class RoboheadController(Node):
         self.speech_recognizer_asr.connect()
         self.speech_recognizer_kws.connect()
         self.usb_cam.connect()
+        self.silero_tts.connect()
         
         self.get_logger().info("All drivers connected successfully")
     
