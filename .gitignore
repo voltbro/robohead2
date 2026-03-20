@@ -1,3 +1,4 @@
+silero_tts/silero_tts/model/*.pt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
