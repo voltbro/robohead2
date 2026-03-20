@@ -1,0 +1,1 @@
+wget "https://models.silero.ai/models/tts/ru/v5_3_ru.pt"

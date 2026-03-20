@@ -20,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/ColorPalette.srv"
   "srv/Color.srv"
   "srv/Move.srv"
+  "srv/Speak.srv"
 
   "msg/AudioData.msg"
   "msg/Color.msg"

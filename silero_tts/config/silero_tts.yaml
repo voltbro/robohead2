@@ -1,0 +1,19 @@
+/**:
+  ros__parameters:
+    # ── Модель ──
+    model_path: "v5_3_ru.pt"             # "" = <package>/model/v5_ru.pt
+    device: "cpu"
+
+    # ── Синтез ──
+    sample_rate: 48000         # 8000 / 24000 / 48000
+    default_voice: 4           # 0=aidar 1=baya 2=kseniya 3=eugene 4=xenia
+
+    # ── Выход ──
+    default_dir: "/dev/shm"        # Директория для файлов когда path_to_save пустой
+
+    # ── Воспроизведение ──
+    # Сервис media_driver (пустая строка = play невозможен)
+    srv_play_media: "/media_driver/play_media"
+
+    # ── ROS2 ──
+    srv_speak_name: "speak"
