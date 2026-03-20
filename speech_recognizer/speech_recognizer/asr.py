@@ -27,6 +27,7 @@ class SpeechRecognizer(Node):
         self.commands = self.declare_parameter('commands', ['покажи левое ухо', 'поздоровайся', 'сделай фото']).value
         srv_name_set_mode = self.declare_parameter('ros.service_name.set_mode', 'set_mode').value
         topic_name_commands = self.declare_parameter('ros.topic_name.commands', 'commands').value
+        topic_name_free = self.declare_parameter('ros.topic_name.free', 'free').value
         topic_name_audio_input = self.declare_parameter('ros.topic_name.audio_input', '/respeaker_driver/audio/main').value
      
         t_start_max = self.declare_parameter('t_start_max', 5.0).value # Начали распознавание и ждём это количество сек, чтоб принять решение что тишина
@@ -51,14 +52,17 @@ class SpeechRecognizer(Node):
         self.grammar_rec.SetEndpointerDelays(t_start_max, t_end, t_max)
 
         self.free_rec = KaldiRecognizer(self.model, sample_rate)  # без грамматики
+        self.free_rec.SetEndpointerDelays(t_start_max, t_end, t_max)
+
 
         # Начинаем в режиме KWS
         self.current_mode = default_mode  # 0 = off, 1 = grammar (vosk), 2 = free (vosk)
 
         # ROS
-        self.audio_sub = self.create_subscription(
-            AudioData, topic_name_audio_input, self.audio_callback, 10)
+        self.audio_sub = self.create_subscription(AudioData, topic_name_audio_input, self.audio_callback, 10)
         self.cmd_pub = self.create_publisher(String, topic_name_commands, 10)
+        self.free_pub = self.create_publisher(String, topic_name_free, 10)
+
 
         # ЕДИНЫЙ сервис управления
         self.srv = self.create_service(SimpleCommand, srv_name_set_mode, self.set_mode_callback)
@@ -115,15 +119,16 @@ class SpeechRecognizer(Node):
                 self.current_mode = 0
                 self.get_logger().info(f"Mode switched to Off")
 
-        elif self.current_mode == 2:  # Free #TODO
+        elif self.current_mode == 2: 
             if self.free_rec.AcceptWaveform(data):
                 res = json.loads(self.free_rec.Result())
                 text = res.get('text', '').strip()
                 if text:
                     cmd_msg = String()
                     cmd_msg.data = text
-                    self.cmd_pub.publish(cmd_msg)
+                    self.free_pub.publish(cmd_msg)
                     self.get_logger().info(f"Transcript: '{text}'")
+                    self.current_mode = 0
 
 def main(args=None):
     rclpy.init(args=args)

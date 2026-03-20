@@ -38,6 +38,7 @@ class RoboheadController(Node):
         self.action_manager = None
         self.queue_wake_phrases = list()
         self.queue_commands = list()
+        self.queue_frees = list()
         self.queue_fast_commands = list()
         self.rate_ = self.create_rate(100)
         

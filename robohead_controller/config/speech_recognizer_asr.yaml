@@ -17,10 +17,12 @@
       - 'покажи правое ухо'
       - 'поздоровайся'
       - 'сделай фото'
+      - 'повтори за мной'
 
     ros:
       service_name:
         set_mode: 'set_mode'
       topic_name:
         commands: 'commands'
+        free: 'free'
         audio_input: '/robohead/respeaker_driver/audio/main'

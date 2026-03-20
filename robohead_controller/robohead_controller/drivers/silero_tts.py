@@ -81,8 +81,10 @@ class SileroTTSConnector:
         while not future.done() and not cancel_event.is_set():
             self.controller.rate_.sleep()
 
-        if future.done() and future.result() is not None:
-            return future.result().data
+        
+        # self.controller.get_logger().info(f'DEBUG: block={block}')  
+        # if block:
+        #     self.controller.sleep(cancel_event, 0.5)
         
         while block and not cancel_event.is_set():
             idle = self.controller.media_driver.is_idle_audio(cancel_event)

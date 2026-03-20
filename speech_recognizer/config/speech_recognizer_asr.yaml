@@ -20,4 +20,5 @@
         set_mode: 'set_mode'
       topic_name:
         commands: 'commands'
+        free: 'free'
         audio_input: '/respeaker_driver/audio/main'

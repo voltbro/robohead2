@@ -43,6 +43,7 @@
         set_mode: '/robohead/speech_recognizer/asr/set_mode'
       topic_name:
         commands: '/robohead/speech_recognizer/asr/commands'
+        free: '/robohead/speech_recognizer/asr/free'
 
     speech_recognizer_kws:
       service_name:
@@ -75,6 +76,7 @@
         "сделай фото" :       "std_make_photo/action.py",
         "покажи левое ухо" :  "std_left_ear/action.py",
         "покажи правое ухо" : "std_right_ear/action.py",
+        "повтори за мной" :   "std_echo/action.py",
         "громче" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_up/action.py",
         "тише" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_down/action.py"
       }

@@ -16,9 +16,11 @@ class SpeechRecognizerAsrConnector:
     
         srv_set_mode_name = self.controller.declare_parameter('speech_recognizer_asr.service_name.set_mode', 'dflt').value
         sub_commands_name = self.controller.declare_parameter('speech_recognizer_asr.topic_name.commands', 'dflt').value
+        sub_free_name = self.controller.declare_parameter('speech_recognizer_asr.topic_name.free', 'dflt').value
+
         self.timeout_text = self.controller.declare_parameter('speech_recognizer_asr.timeout_text', 'dflt').value
 
-
+        self.sub_free = self.controller.create_subscription(String, sub_free_name, self.sub_free_callback, 1)
         self.sub_commands = self.controller.create_subscription(String, sub_commands_name, self.sub_commands_callback, 1)
         self.srv_set_mode = self.controller.create_client(SimpleCommand, srv_set_mode_name)
 
@@ -27,7 +29,12 @@ class SpeechRecognizerAsrConnector:
 
         self.controller.get_logger().info('speech_recognizer_asr connected')
         return True
-    
+
+    def sub_free_callback(self, msg:String):
+        free = msg.data
+        self.controller.get_logger().info(f'Free: |{free}| ')
+        self.controller.queue_frees.append(free)
+
     def sub_commands_callback(self, msg:String):
         command = msg.data
         self.controller.get_logger().info(f'Command: |{command}| ')
