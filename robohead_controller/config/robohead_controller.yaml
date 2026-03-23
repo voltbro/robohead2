@@ -77,6 +77,7 @@
         "покажи левое ухо" :  "std_left_ear/action.py",
         "покажи правое ухо" : "std_right_ear/action.py",
         "повтори за мной" :   "std_echo/action.py",
+        "ответь на вопрос" :  "std_llm/action.py",
         "громче" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_up/action.py",
         "тише" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_down/action.py"
       }

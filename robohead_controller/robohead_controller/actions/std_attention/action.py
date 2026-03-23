@@ -47,7 +47,7 @@ def run(controller, action_name: str, cancel_event: threading.Event):
     # audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_attention/attention.mp3",
     # loop=False, block=False
     # )
-    controller.silero_tts.say(cancel_event, "Чего изволите, мой дорогой хозяин?", block=True)
+    controller.silero_tts.say(cancel_event, "Чего надо?", block=False)
     h_angle = max(-30, min(30, -controller.respeaker_driver.doa))
     controller.neck_driver.set_angle(cancel_event, horizontal=h_angle, vertical=30, duration=1, block=False)
     controller.ears_driver.set_angle(cancel_event, left=-30, right=30, duration=1, block=True)
