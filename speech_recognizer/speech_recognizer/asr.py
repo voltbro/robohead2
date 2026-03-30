@@ -123,12 +123,16 @@ class SpeechRecognizer(Node):
             if self.free_rec.AcceptWaveform(data):
                 res = json.loads(self.free_rec.Result())
                 text = res.get('text', '').strip()
+
+                cmd_msg = String()
                 if text:
-                    cmd_msg = String()
                     cmd_msg.data = text
-                    self.free_pub.publish(cmd_msg)
-                    self.get_logger().info(f"Transcript: '{text}'")
-                    self.current_mode = 0
+                    
+                else:
+                    cmd_msg.data = self.timeout_text
+                self.get_logger().info(f"Transcript: '{text}'")
+                self.free_pub.publish(cmd_msg)
+                self.current_mode = 0
 
 def main(args=None):
     rclpy.init(args=args)

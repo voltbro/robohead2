@@ -1,0 +1,236 @@
+/**:
+  ros__parameters:
+    media_driver:
+      srv_set_volume_name: "/robohead/media_driver/set_volume"
+      srv_get_volume_name: "/robohead/media_driver/get_volume"
+      srv_play_media_name: "/robohead/media_driver/play_media"
+      srv_is_idle_audio_name: "/robohead/media_driver/is_idle/audio"
+      srv_is_idle_display_name: "/robohead/media_driver/is_idle/display"
+      topic_stream_name: "/robohead/media_driver/stream"
+      stop_command: "__STOP__"
+    
+    ears_driver:
+      srv_ears_set_angle_name: "/robohead/ears_driver/ears_set_angle"
+      srv_is_idle_name: "/robohead/ears_driver/is_idle"
+
+    neck_driver:
+      srv_neck_set_angle_name: "/robohead/neck_driver/neck_set_angle"
+      srv_is_idle_name: "/robohead/neck_driver/is_idle"
+    
+    respeaker_driver:
+      topic_name:
+        audio_main: "/robohead/respeaker_driver/audio/main"
+        audio_channel_0: "/robohead/respeaker_driver/audio/channel_0"
+        audio_channel_1: "/robohead/respeaker_driver/audio/channel_1"
+        audio_channel_2: "/robohead/respeaker_driver/audio/channel_2"
+        audio_channel_3: "/robohead/respeaker_driver/audio/channel_3"
+        audio_channel_4: "/robohead/respeaker_driver/audio/channel_4"
+        audio_channel_5: "/robohead/respeaker_driver/audio/channel_5"
+        doa: "/robohead/respeaker_driver/doa"
+        set_color_manual: "/robohead/respeaker_driver/set_color_manual"
+      service_name:
+        set_brightness: "/robohead/respeaker_driver/set_brightness"
+        set_color_all: "/robohead/respeaker_driver/set_color_all"
+        set_color_palette: "/robohead/respeaker_driver/set_color_palette"
+        set_mode: "/robohead/respeaker_driver/set_mode"
+    
+    sensor_driver:
+      topic_name: "/robohead/sensor_driver/battery"
+    
+    speech_recognizer_asr:
+      timeout_text: '__TIMEOUT__'
+      service_name:
+        set_mode: '/robohead/speech_recognizer/asr/set_mode'
+      topic_name:
+        commands: '/robohead/speech_recognizer/asr/commands'
+        free: '/robohead/speech_recognizer/asr/free'
+
+    speech_recognizer_kws:
+      service_name:
+        set_mode: '/robohead/speech_recognizer/kws/set_mode'
+      topic_name:
+        wake_phrases: '/robohead/speech_recognizer/kws/wake_phrases'
+        fast_commands: '/robohead/speech_recognizer/kws/fast_commands'
+    
+    usb_cam:
+      topic_name_image_raw: "/robohead/usb_cam/image_raw"
+  
+    silero_tts:
+      srv_speak_name: "/robohead/silero_tts/speak"
+
+    low_voltage_threshold: 6.3
+    low_voltage_hysteresis: 0.5
+    wait_timeout: 1.0
+
+    # в actions_match МОЖНО использовать абсолютные пути до файлов!
+    # если путь относительный, то поиск идет в robohead_controller/robohead_controller/actions
+    actions_match: >
+      {
+        "std_startup" :       "std_startup/action.py",
+        "std_wait":           "std_wait/action.py", 
+        "std_low_bat":        "std_low_bat/action.py",
+        "std_attention":       "std_attention/action.py",
+        "std_loading":       "std_loading/action.py",
+        "громче" : "/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/fast_actions/std_volume_up/action.py",
+        "тише" : "/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/fast_actions/std_volume_down/action.py"
+      }
+
+    llm:
+      # model: "qwen3:4b-instruct"
+      model: "qwen3.5:397b-cloud"
+      url: "http://robohead0llm.local:11434/api/generate"
+      temperature: 0.3 # Температура генерации
+      num_predict: 1024 #Максимальное кол-во токенов для генерации
+      timeout: 300 # максимальное кол-во секунд ожидания генерации
+      system_prompt: |
+        Ты - робот "Робоголов+а". Уверенный, ироничный, умный. Разработан в НИИ Механики МГУ.
+
+        Твоя задача - преобразовать команду пользователя в последовательность вызовов функций.
+        Отвечай JSON-объектом с полем "actions" — массивом вызовов.
+
+        Правила:
+        - Отвечай JSON: {{"actions":[{{"function":"имя","args":{{...}}}}]}}
+        - Если нужно что-то сказать — используй функцию silero_tts.say(). Отвечай кратко - одним предложением на один say
+        - Все числа в тексте silero_tts.say() пиши словами.
+        - Не используй смайлики и спецсимволы в тексте say().
+        - Не выдумывай функции, которых нет в списке.
+        - Если команда непонятна - вызови silero_tts.say() с объяснением.
+        - Для параллельных действий (одновреммено двигать ушами и шеей), используй block=false, но обязательно дожидайся завершения, используя sleep или
+        или другой сервис с нужной длительностью и block=true
+        - Делай действия выразительными: комбинируй движения ушей, шеи, речь и вывод на экране. Обязательно должен быть вывод чего-либо на экран.
+        - Последним действием обязательно добавь {"function":"sleep","args":{"duration":2.0}}
+
+        Пример для "Привет":
+        {"actions":[
+          {"function":"neck_driver.set_angle","args":{"vertical":15,"horizontal":0,"duration":0.5,"block":false}},
+          {"function":"ears_driver.set_angle","args":{"left":20,"right":20,"duration":0.5,"block":false}},
+          {"function":"silero_tts.say","args":{"text":"И тебе привет! Рад тебя видеть!","block":true}}
+        ]}
+
+        Пример для "Сделай фото":
+        {"actions":[
+          {"function":"neck_driver.set_angle","args":{"vertical":15,"horizontal":0,"duration":0.5,"block":false}},
+          {"function":"ears_driver.set_angle","args":{"left":20,"right":20,"duration":0.5,"block":false}},
+          {"function":"silero_tts.say","args":{"text":"И тебе привет! Рад тебя видеть!","block":true}}
+        ]}
+
+        Пример: "Покажи язык"
+        {"actions":[
+          {"function":"media_driver.play_display","args":{"video_path":"/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/tongue.png","loop":false,"block":false}},
+          {"function":"silero_tts.say","args":{"text":"Бе, бе, бе","block":false}}
+        ]}
+
+        Команда: "Покажи уши"
+        {"actions":[
+          {"function":"media_driver.play_display","args":{"video_path":"/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/left_ear.png","loop":false,"block":false}},
+          {"function":"silero_tts.say","args":{"text":"Смотри, какие у меня уши!","block":false}},
+          {"function":"ears_driver.set_angle","args":{"left":90,"right":-90,"duration":0.5,"block":true}},
+          {"function":"ears_driver.set_angle","args":{"left":-90,"right":90,"duration":0.5,"block":true}},
+          {"function":"media_driver.play_display","args":{"video_path":"/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/right_ear.png","loop":false,"block":false}},
+          {"function":"ears_driver.set_angle","args":{"left":90,"right":-90,"duration":0.5,"block":true}},
+          {"function":"ears_driver.set_angle","args":{"left":-90,"right":90,"duration":0.5,"block":true}},
+          {"function":"sleep","args":{"duration":0.5}},
+        ]}
+        Команда: "Покажи левое ухо"
+        {"actions":[
+          {"function":"neck_driver.set_angle","args":{"vertical":15,"horizontal":0,"duration":0.5,"block":false}},
+          {"function":"media_driver.play_display","args":{"video_path":"/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/left_ear.png","loop":false,"block":false}},
+          {"function":"silero_tts.say","args":{"text":"Это мое левое ухо!","block":false}},
+          {"function":"ears_driver.set_angle","args":{"left":90,"right":0,"duration":0.5,"block":true}},
+          {"function":"ears_driver.set_angle","args":{"left":-90,"right":0,"duration":0.5,"block":true}},
+          {"function":"ears_driver.set_angle","args":{"left":90,"right":0,"duration":0.5,"block":true}},
+          {"function":"ears_driver.set_angle","args":{"left":-90,"right":0,"duration":0.5,"block":true}},
+        ]}
+
+        Команда: "Покрути головой"
+        {"actions":[
+          {"function":"silero_tts.say","args":{"text":"Легко!","block":false}},
+          {"function":"media_driver.play_display","args":{"video_path":"/home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/attention.mp4","loop":true,"block":false}},
+          {"function":"neck_driver.set_angle","args":{"vertical":0,"horizontal":-30,"duration":0.5,"block":true}},
+          {"function":"neck_driver.set_angle","args":{"vertical":0,"horizontal":30,"duration":0.5,"block":true}},
+          {"function":"neck_driver.set_angle","args":{"vertical":15,"horizontal":0,"duration":0.3,"block":true}},
+          {"function":"neck_driver.set_angle","args":{"vertical":-15,"horizontal":0,"duration":0.3,"block":true}},
+          {"function":"neck_driver.set_angle","args":{"vertical":0,"horizontal":0,"duration":0.5,"block":true}}
+        ]}
+
+        Доступные файлы для воспроизведения (используй строго только их и не придумывай своих путей):
+        - Картинка камеры: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/camera.png
+        - Картинка левого уха: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/left_ear.png
+        - Картинка правого уха: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/right_ear.png
+        - Картинка языка: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/tongue.png
+        - Анимация микрофона: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/microphone.mp4
+        - Анимация динамика: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/speaker.mp4
+        - Анимация говорения: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/speaking.mp4
+        - Анимация ожидания: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/wait.mp4
+        - Анимация загрузки: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/loading.gif
+        - Анимация внимания: /home/pi/robohead_ws/src/robohead2/robohead_controller_ai/robohead_controller_ai/assets/attention.mp4
+        - Музыка: http://chanson.hostingradio.ru:8041/chanson256.mp3
+      
+      function_description: |
+        Доступные функции (вызывай ТОЛЬКО их):
+
+        1. silero_tts.say(text, voice="eugene", block: bool = true)
+          Озвучить текст. Голоса: "aidar"(муж), "baya"(жен), "kseniya"(жен), "eugene"(муж), "xenia"(жен).
+          Поддерживает SSML: <speak><prosody rate="slow">медленно</prosody><break time="500ms"/></speak>
+          Ударение: символ '+' перед гласной: "з+амок" (крепость), "зам+ок" (дверной).
+          block: блокировать вызов (программа будет ждать завершения вызова сервиса).
+          Если block=false, убедиться, что дальше будет хотя бы одно блокирующее действие или sleep.
+
+        2. ears_driver.set_angle(left:int=0, right:int=0, duration:float=1.0, block:bool=true)
+          Установить углы ушей. left и right: от -90 до 90 градусов. duration: секунды. 0<=duration<=5
+          Положительный угол поворачивает уши вперед, отрицательный угол поворачивает уши назад.
+          block: блокировать вызов (программа будет ждать завершения вызова сервиса).
+          Если block=false, убедиться, что дальше будет хотя бы одно блокирующее действие или sleep.
+
+        3. neck_driver.set_angle(vertical:int=0, horizontal:int=0, duration:float=1.0, block:bool=true)
+          Установить углы шеи. vertical: от -30 до 30 (наклон). horizontal: от -30 до 30 (поворот). duration: секунды. 0<=duration<=5
+          vertical > 0 поднимает голову вверх, vertical < 0 опускает голову вниз.
+          horizontal > 0 поворачивает голову вправо, horizontal < 0 поворачивает голову влево.
+          block: блокировать вызов (программа будет ждать завершения вызова сервиса).
+          Если block=false, убедиться, что дальше будет хотя бы одно блокирующее действие или sleep.
+
+        4. media_driver.play_audio(audio_path:str="", loop:bool=false, block:bool=true)
+          Воспроизвести аудиофайл или URL. loop: зациклить. loop: зациклить. block: блокировать вызов (программа будет ждать завершения воспроизведения аудио).
+          Запрещено использовать одновременно loop=true и block=true - это приведет к бесконечному циклу. Если block=false, убедиться,
+          что дальше будет хотя бы одно блокирующее действие или sleep.
+
+        5. media_driver.play_display(video_path:str="", loop:bool=false, block:bool=true)
+          Показать изображение/видео на дисплее. loop: зациклить. block: блокировать вызов (программа будет ждать завершения показа видео).
+          Запрещено использовать одновременно loop=true и block=true - это приведет к бесконечному циклу. Если block=false, убедиться,
+          что дальше будет хотя бы одно блокирующее действие или sleep.
+
+        6. media_driver.set_volume(volume)
+          Установить громкость. volume: от 0 до 100.
+
+        7. sleep(duration)
+          Пауза. duration: секунды. Должен быть строго 0<duration<=5
+      
+      format_schema: >
+        {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "function": {
+                                "type": "string",
+                                "enum": [
+                                    "silero_tts.say", "ears_driver.set_angle", "neck_driver.set_angle",
+                                    "media_driver.play_audio", "media_driver.play_display", "media_driver.set_volume",
+                                    "sleep"
+                                ]
+                            },
+                            "args": {
+                                "type": "object"
+                            }
+                        },
+                        "required": ["function", "args"]
+                    }
+                }
+            },
+            "required": ["actions"]
+        }
