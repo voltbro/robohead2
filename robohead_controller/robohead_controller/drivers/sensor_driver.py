@@ -1,36 +1,90 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from ..controller import RoboheadController
+    from rclpy.subscription import Subscription
+
 from sensor_msgs.msg import BatteryState
-import rclpy
-import sys
+
 
 class SensorDriverConnector:
-    
-    def __init__(self, controller):
-        self.controller = controller
 
-        self.sub_battery_state = None
+    def __init__(self, controller: RoboheadController):
+        self.controller: RoboheadController = controller
 
-        self.msg_battery_state = None
-        self.battery_voltage = None
-        self.battery_current = None
-        self.battery_power_supply_status = None
-        self.battery_power_supply_technology = None
-    
-    def connect(self):
-    
-        sub_battery_state_name = self.controller.declare_parameter('sensor_driver.topic_name', 'dflt').value
+        self._sub_battery_state: Optional[Subscription] = None
+        self._battery_state_msg: Optional[BatteryState] = None
 
-        self.sub_battery_state = self.controller.create_subscription(BatteryState, sub_battery_state_name, self.sub_battery_state_callback, 1)
+    def connect(self) -> bool:
+        """
+        Подключение к топикам.
 
-        self.controller.get_logger().info('sensor_driver connected')
+        Returns:
+            out (bool): True if successfull, False - else
+        """
+
+        sub_battery_state_name: str = str(
+            self.controller.declare_parameter("sensor_driver.topic_name", "dflt").value
+        )
+
+        self._sub_battery_state = self.controller.create_subscription(
+            BatteryState,
+            sub_battery_state_name,
+            self._sub_battery_state_callback,
+            1,
+        )
+
+        self.controller.get_logger().info("sensor_driver connected")
         return True
-    
-    def sub_battery_state_callback(self, msg:BatteryState):
-        self.msg_battery_state = msg
-        self.battery_voltage = msg.voltage
-        self.battery_current = msg.current
-        self.battery_power_supply_status = msg.power_supply_status
-        self.battery_power_supply_technology = msg.power_supply_technology
 
-        # self.controller.get_logger().info(f'voltage {self.battery_voltage} ')
+    def _sub_battery_state_callback(self, msg: BatteryState) -> None:
+        self._battery_state_msg = msg
 
+    @property
+    def battery_state(self) -> Optional[BatteryState]:
+        """
+        Возвращает последнее полученное сообщение о состоянии батареи.
+        Доступно только для чтения.
+        """
+        return self._battery_state_msg
 
+    @property
+    def battery_voltage(self) -> Optional[float]:
+        """
+        Возвращает текущее напряжение батареи.
+        Доступно только для чтения.
+        """
+        if self._battery_state_msg is not None:
+            return float(self._battery_state_msg.voltage)
+        return None
+
+    @property
+    def battery_current(self) -> Optional[float]:
+        """
+        Возвращает текущий ток батареи.
+        Доступно только для чтения.
+        """
+        if self._battery_state_msg is not None:
+            return float(self._battery_state_msg.current)
+        return None
+
+    @property
+    def battery_power_supply_status(self) -> Optional[int]:
+        """
+        Возвращает текущий статус источника питания.
+        Доступно только для чтения.
+        """
+        if self._battery_state_msg is not None:
+            return int(self._battery_state_msg.power_supply_status)
+        return None
+
+    @property
+    def battery_power_supply_technology(self) -> Optional[int]:
+        """
+        Возвращает тип технологии источника питания.
+        Доступно только для чтения.
+        """
+        if self._battery_state_msg is not None:
+            return int(self._battery_state_msg.power_supply_technology)
+        return None

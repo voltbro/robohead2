@@ -1,35 +1,68 @@
-#!/usr/bin/env python3
-"""
-std_wait action: Циклическая анимация ожидания + индикация светодиодами
-"""
+# std_ears
+# действие, выполняющееся при команде "Покажи уши"
 
-import time
-from typing import Optional
-import threading
+from __future__ import annotations
+from typing import TYPE_CHECKING
+import os
 
-def run(controller, action_name: str="", cancel_event: threading.Event=None):
+if TYPE_CHECKING:
+    from robohead_controller.controller import RoboheadController
+    import threading
+
+
+def run(
+    controller: RoboheadController, action_name: str, cancel_event: threading.Event
+):
     """
-    Основная функция действия.
-    
     Args:
-        controller: Ссылка на контроллер (RoboheadController)
-        action_name: Имя действия ('std_wait')
+        controller: Ссылка на контроллер
+        action_name: Команда, по которой было вызвано действие
         cancel_event: threading.Event для проверки отмены
-        on_complete: Колбэк завершения (обычно None для циклических действий)
     """
-    logger = controller.get_logger()
-    logger.info(f"[{action_name}] Starting wait animation")
+    action_dir = os.path.dirname(os.path.abspath(__file__))
 
-    controller.media_driver.play_display(cancel_event,
-        video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_ears/ears.png",
-        loop=True, block=False
+    logger = controller.get_logger()
+    logger.info(f"[{action_name}] start")
+
+    # Переключаем режим микрофона ReSpeaker
+    # controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=30)
+    # controller.respeaker_driver.set_led_color_all(
+    # cancel_event=cancel_event, red=255, green=255, blue=255
+    # )
+    # controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
+
+    # Выводим картинку ears.png
+    controller.media_driver.play_display(
+        cancel_event=cancel_event,
+        video_path=os.path.join(action_dir, "ears.png"),
+        loop=True,
+        block=False,
     )
-    controller.media_driver.play_audio(cancel_event,
-        audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_ears/ears.mp3",
-        loop=False, block=False
+
+    # Проигрываем звук ears.mp3
+    controller.media_driver.play_audio(
+        cancel_event=cancel_event,
+        audio_path=os.path.join(action_dir, "ears.mp3"),
+        loop=False,
+        block=False,
     )
 
     for k in range(5):
-        controller.neck_driver.set_angle(cancel_event, horizontal=15 * (-1) **k, vertical=15, duration=0.5, block=False)
-        controller.ears_driver.set_angle(cancel_event, left=90*(-1)**k, right=90*(-1)**(k+1), duration=0.5, block=True)
-        # logger.info(f"[{action_name}]  k:{k}")
+        # Поворачиваем голову
+        controller.neck_driver.set_angle(
+            cancel_event=cancel_event,
+            horizontal=15 * (-1) ** k,
+            vertical=15,
+            duration=0.5,
+            block=False,
+        )
+        # Поворачиваем уши
+        controller.ears_driver.set_angle(
+            cancel_event=cancel_event,
+            left=90 * (-1) ** k,
+            right=-90 * (-1) ** k,
+            duration=0.5,
+            block=True,
+        )
+
+    logger.info(f"[{action_name}] finish")

@@ -1,55 +1,79 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Optional
+from enum import Enum, auto
+import threading
 
-class Commander():
-    def __init__(self, controller):
+if TYPE_CHECKING:
+    from ..controller import RoboheadController
+    from rclpy.timer import Timer
 
-        self.controller = controller
- 
-        self.state = 'wait_wake_phrase'
 
-        self.timer = self.controller.create_timer(0.1, self.queue_tick) # 2 раза в секунду
-    
-    def queue_tick(self):
-        """Обработчик команд"""
+class CommanderState(Enum):
+    """Состояния командера."""
+
+    WAIT_WAKE_PHRASE = auto()
+    WAIT_COMMAND = auto()
+
+
+class Commander:
+    def __init__(self, controller: RoboheadController):
+        self.controller: RoboheadController = controller
+
+        self._state: CommanderState = CommanderState.WAIT_WAKE_PHRASE
+        self._dummy_cancel_event: threading.Event = threading.Event()
+
+        self._timer: Optional[Timer] = self.controller.create_timer(
+            0.01, self._queue_tick
+        )  # 100 раз в секунду
+
+    @property
+    def state(self) -> CommanderState:
+        """
+        Возвращает текущее состояние командера.
+        Доступно только для чтения.
+        """
+        return self._state
+
+    def _queue_tick(self) -> None:
+        """Обработчик команд (вызывается таймером)."""
 
         if len(self.controller.queue_fast_commands) > 0:
-            fast_command = self.controller.queue_fast_commands.pop(0)
+            fast_command: str = self.controller.queue_fast_commands.pop(0)
             self.controller.action_manager.execute_action(fast_command, None, False)
 
-
-        if self.state == 'wait_wake_phrase':
+        if self._state == CommanderState.WAIT_WAKE_PHRASE:
             if len(self.controller.queue_wake_phrases) > 0:
-                self.controller.action_manager.execute_action("std_attention", None, True)
-                self.state = 'wait_command'
-                # self.controller.get_logger().info("comander 1")
+                self._state = CommanderState.WAIT_COMMAND
                 self.controller.queue_wake_phrases.clear()
-                # self.controller.get_logger().info("comander 2")
 
-                self.controller.speech_recognizer_asr.set_mode(1)
-                # self.controller.get_logger().info("comander 3")
+                self.controller.speech_recognizer_asr.set_mode(
+                    cancel_event=self._dummy_cancel_event, mode=1
+                )
+                self.controller.speech_recognizer_kws.set_mode(
+                    cancel_event=self._dummy_cancel_event, mode=0
+                )
+                self.controller.action_manager.execute_action(
+                    "std_attention", None, True
+                )
 
-                self.controller.speech_recognizer_kws.set_mode(0)
-                # self.controller.get_logger().info("comander 4")
-            
-
-
-        elif self.state == 'wait_command':
+        elif self._state == CommanderState.WAIT_COMMAND:
             if len(self.controller.queue_commands) > 0:
-                # self.controller.get_logger().info("comander 5")
-                self.state = 'wait_wake_phrase'
-                self.controller.speech_recognizer_kws.set_mode(1)
-                # self.controller.get_logger().info("comander 6")
+                command: str = self.controller.queue_commands.pop(0)
+                self.controller.queue_commands.clear()
+                self._state = CommanderState.WAIT_WAKE_PHRASE
 
-                command = self.controller.queue_commands.pop(0)
-                # self.controller.get_logger().info("comander 7")
+                self.controller.speech_recognizer_asr.set_mode(
+                    cancel_event=self._dummy_cancel_event, mode=0
+                )
+                self.controller.speech_recognizer_kws.set_mode(
+                    cancel_event=self._dummy_cancel_event, mode=1
+                )
 
                 if command != self.controller.speech_recognizer_asr.timeout_text:
-                    self.controller.action_manager.execute_action(command, 'std_wait', True)
+                    self.controller.action_manager.execute_action(
+                        command, "std_wait", True
+                    )
                 else:
-                    self.controller.action_manager.execute_action("std_wait", None, True)
-                # self.controller.get_logger().info("comander 8")
-                
-                self.controller.queue_commands.clear()
-                
-
-
-
+                    self.controller.action_manager.execute_action(
+                        "std_wait", None, True
+                    )

@@ -1,42 +1,69 @@
-# actions/std_ears/action.py
+# std_greeting
+# действие, выполняющееся при команде "Поздоровайся"
 
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import os
-import rclpy
-from robohead_controller.main import *
-import time
 
-import threading
-from typing import Optional, Callable
+if TYPE_CHECKING:
+    from robohead_controller.controller import RoboheadController
+    import threading
 
-def sleep(duration):
-    check_interval = 0.1  # Проверяем отмену каждые 100 мс
-    
-    elapsed = 0.0
-    while elapsed < duration and not cancel_event.is_set():
-        time.sleep(check_interval)
-        elapsed += check_interval
 
-def run(controller, action_name: str, cancel_event: threading.Event):
+def run(
+    controller: RoboheadController, action_name: str, cancel_event: threading.Event
+):
     """
     Args:
-        controller: Ссылка на контроллер (RoboheadController)
-        action_name: Имя действия ('greet')
+        controller: Ссылка на контроллер
+        action_name: Команда, по которой было вызвано действие
         cancel_event: threading.Event для проверки отмены
-        on_complete: Колбэк, вызываемый после успешного завершения
     """
+    action_dir = os.path.dirname(os.path.abspath(__file__))
 
     logger = controller.get_logger()
-    logger.info(f"[{action_name}] Starting greeting action")
+    logger.info(f"[{action_name}] start")
 
-    result = controller.media_driver.play_display(cancel_event,
-    video_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_greeting/greeting.mp4",
-    loop=True, block=False
-    )
-    result = controller.media_driver.play_audio(cancel_event,
-    audio_path="/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/actions/std_greeting/greeting.mp3",
-    loop=False, block=False
+    # Переключаем режим микрофона ReSpeaker
+    # controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=30)
+    # controller.respeaker_driver.set_led_color_all(
+    # cancel_event=cancel_event, red=255, green=255, blue=255
+    # )
+    # controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
+
+    # Выводим анимацию greeting.mp4
+    controller.media_driver.play_display(
+        cancel_event=cancel_event,
+        video_path=os.path.join(action_dir, "greeting.mp4"),
+        loop=True,
+        block=False,
     )
 
-    controller.ears_driver.set_angle(cancel_event, left=-90, right=90, duration=1.5, block=False)
+    # Проигрываем звук greeting.mp3
+    controller.media_driver.play_audio(
+        cancel_event=cancel_event,
+        audio_path=os.path.join(action_dir, "greeting.mp3"),
+        loop=False,
+        block=False,
+    )
+
+    # Поворачиваем уши
+    controller.ears_driver.set_angle(
+        cancel_event=cancel_event,
+        left=-90,
+        right=90,
+        duration=0.5,
+        block=False,
+    )
+
     for k in range(5):
-        controller.neck_driver.set_angle(cancel_event, horizontal=0, vertical=15 + 10 * (-1)**k, duration=0.3, block=True)
+        # Трясём головой
+        controller.neck_driver.set_angle(
+            cancel_event=cancel_event,
+            horizontal=0,
+            vertical=15 + 10 * (-1) ** k,
+            duration=0.4,
+            block=True,
+        )
+
+    logger.info(f"[{action_name}] finish")

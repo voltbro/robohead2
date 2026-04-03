@@ -1,34 +1,45 @@
 #!/usr/bin/env python3
-import rclpy
-from robohead_controller.controller import RoboheadController
-import time
+from __future__ import annotations
+import sys
+import traceback
 
-def main(args=None):
+import rclpy
+from rclpy.executors import MultiThreadedExecutor
+
+from robohead_controller.controller import RoboheadController
+
+
+def main(args: list[str] | None = None) -> None:
     rclpy.init(args=args)
-    
+
+    controller: RoboheadController | None = None
+
     try:
         controller = RoboheadController()
-        # time.sleep(1)  # Небольшая пауза для инициализации
-        
+
         # Подключение всех драйверов
         controller.connect_all_drivers()
-        controller.startup_timer = controller.create_timer(0.1, controller.start)
-        
+
+        # Отложенный запуск контроллера (после первого spin)
+        controller._startup_timer = controller.create_timer(0.1, controller.start)
+
         # Запуск многопоточного исполнителя
-        executor = rclpy.executors.MultiThreadedExecutor()
+        executor = MultiThreadedExecutor()
         executor.add_node(controller)
         executor.spin()
-        
+
     except KeyboardInterrupt:
         pass
+
     except Exception as e:
         print(f"Fatal error: {e}", file=sys.stderr)
-        import traceback
         traceback.print_exc()
+
     finally:
-        if 'controller' in locals():
+        if controller is not None:
             controller.destroy_node()
         rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
