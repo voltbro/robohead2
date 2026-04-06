@@ -90,8 +90,12 @@ def run(
     user_text = controller.queue_frees.pop(0)  # Распознанный свободный текст
     controller.queue_frees.clear()  # Очищаем очередь распознанного текста - для надёжности
 
-    # Озвучиваем распознанный текст
-    controller.silero_tts.say(cancel_event=cancel_event, text=user_text, block=True)
+    # Озвучиваем распознанный текст с SSML
+    controller.silero_tts.say(
+        cancel_event=cancel_event,
+        text=f'<speak><p><prosody rate="slow">{user_text}</prosody></p></speak>',
+        block=True,
+    )
 
     # Проигрываем звук ears.mp3
     controller.media_driver.play_audio(

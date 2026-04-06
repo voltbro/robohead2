@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from robohead_controller.controller import RoboheadController
     import threading
 
-MODEL_URL = "http://robohead0llm-2.local:11434/api/generate"
+MODEL_URL = "http://robohead0llm.local:11434/api/generate"
 MODEL_NAME = "qwen3:4b-instruct"
 
 PROMT = """
