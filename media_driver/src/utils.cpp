@@ -30,8 +30,7 @@ bool is_image(const std::string& path) {
          has_extension(path, ".jpeg") || has_extension(path, ".bmp")   || 
          has_extension(path, ".webp") || has_extension(path, ".gif")   || 
          has_extension(path, ".tiff") || has_extension(path, ".tif")   || 
-         has_extension(path, ".svg")  || has_extension(path, ".heic")  || 
-         has_extension(path, ".heif");
+         has_extension(path, ".svg");
 }
 
 // Проверка видео
@@ -42,7 +41,7 @@ bool is_video(const std::string& path) {
          has_extension(path, ".wmv")  || has_extension(path, ".m4v")   || 
          has_extension(path, ".mpeg") || has_extension(path, ".mpg")   || 
          has_extension(path, ".3gp")  || has_extension(path, ".ts")    || 
-         has_extension(path, ".mxf");
+         has_extension(path, ".m3u8") || has_extension(path, ".m3u");
 }
 
 // Проверка аудио
@@ -51,19 +50,5 @@ bool is_audio(const std::string& path) {
          has_extension(path, ".ogg")  || has_extension(path, ".flac")  || 
          has_extension(path, ".aac")  || has_extension(path, ".m4a")   || 
          has_extension(path, ".wma")  || has_extension(path, ".opus")  || 
-         has_extension(path, ".aiff") || has_extension(path, ".aif")   || 
-         has_extension(path, ".midi") || has_extension(path, ".mid")   || 
-         has_extension(path, ".amr");
+         has_extension(path, ".aiff") || has_extension(path, ".aif");
 }
-
-// #include <iostream>
-// int main()
-// {
-//   std::string s;
-//   std::cin >> s;
-
-//   std::cout << is_audio(s);
-//   std::cout << is_image(s);
-//   std::cout << is_video(s);
-
-// }

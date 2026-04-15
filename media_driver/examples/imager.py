@@ -21,7 +21,7 @@ class ImageForwarder(Node):
             '/media_driver/stream',
             10)
 
-        self.get_logger().info('ImageForwarder initialized — forwarding image_raw → media_driver/stream')
+        self.get_logger().info('ImageForwarder initialized: forwarding image_raw -> media_driver/stream')
 
     def image_callback(self, msg: Image):
         # Просто пересылаем сообщение без изменений

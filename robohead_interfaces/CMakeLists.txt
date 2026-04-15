@@ -25,6 +25,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AudioData.msg"
   "msg/Color.msg"
   "msg/ColorArray.msg"
+  "msg/TouchEvent.msg"
   # DEPENDENCIES geometry_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 

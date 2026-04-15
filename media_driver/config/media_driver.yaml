@@ -9,7 +9,20 @@
 
 
     topic_stream_name: "stream"
-    stop_command: "__STOP__"
+    stop_command: "__STOP__"  # Команда для остановки воспроизведения (видео либо звука)
 
-    display_rotate: "270" # поворот картинки дисплея, 0-359 градусов
-    default_volume: 50.0
+    display_rotate: "270" # Поворот картинки дисплея (по часовой стрелке), 0-359 градусов
+    default_volume: 50.0  # Громкость по-умолчанию при запуске
+
+    # touchscreen config:
+    device_name: "waveshare"
+    device_path: "/dev/input/"
+    topic_touchscreen_name: "touchscreen"
+
+    resolution:
+      display:
+        height: 1080
+        width: 1080
+      touchscreen:
+        height: 4096
+        width: 4096

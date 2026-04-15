@@ -14,4 +14,13 @@ def generate_launch_description():
                 FindPackageShare('media_driver'), 'config', 'media_driver.yaml'])
             ],
         ),
+        Node(
+            package='media_driver',
+            executable='touch_publisher_node',
+            name='touch_publisher_node',
+            namespace='media_driver',
+            parameters=[PathJoinSubstitution([
+                FindPackageShare('media_driver'), 'config', 'media_driver.yaml'])
+            ],
+        ),
     ])

@@ -44,6 +44,7 @@ set(HEADERS
   include/${PROJECT_NAME}/mpv_player.hpp
   include/${PROJECT_NAME}/utils.hpp
   include/${PROJECT_NAME}/node.hpp
+  include/${PROJECT_NAME}/touch_publisher.hpp
 )
 
 # --- Исполняемый файл ---
@@ -70,6 +71,20 @@ ament_target_dependencies(${PROJECT_NAME}_node
   cv_bridge
 )
 
+# ---
+add_executable(touch_publisher_node
+  src/touch_publisher.cpp
+)
+target_include_directories(${PROJECT_NAME}_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+ament_target_dependencies(touch_publisher_node
+  rclcpp
+  robohead_interfaces
+)
+
+
 # Установка заголовочных файлов
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION include/${PROJECT_NAME}
@@ -85,5 +100,8 @@ install(TARGETS
   ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME}
 )
-
+install(TARGETS
+  touch_publisher_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 ament_package()

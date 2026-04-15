@@ -79,6 +79,6 @@
         "повтори за мной" :   "std_echo/action.py",
         "ответь на вопрос" :  "std_llm/action.py",
         "покажи напряжение" : "std_show_voltage/action.py",
-        "громче" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_up/action.py",
-        "тише" : "/home/pi/robohead_ws/src/robohead2/robohead_controller/robohead_controller/fast_actions/std_volume_down/action.py"
+        "громче" :            "std_volume_up/action.py",
+        "тише" :              "std_volume_down/action.py"
       }
