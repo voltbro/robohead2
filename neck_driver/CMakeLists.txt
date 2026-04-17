@@ -32,4 +32,11 @@ install(
 install(TARGETS ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME})
 
+add_executable(servo_pulse_check src/servo_pulse_check.cpp)
+
+install(TARGETS
+  servo_pulse_check
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
