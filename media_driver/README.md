@@ -1,320 +1,527 @@
-
-
-# Документация: ROS2 нода `media_driver`
+# Документация: ROS2 пакет `media_driver`
 
 ## Общее описание
 
-Нода `media_driver` управляет воспроизведением медиаконтента (видео, изображения, аудио, интернет-потоки) на робоголове. Внутри используются **два независимых экземпляра MPV**:
+Пакет `media_driver` обеспечивает управление мультимедийным контентом на робоголове через **два независимых экземпляра MPV-плеера**:
 
-- **Video player** — отображает видео/изображения на дисплее через DRM (без X-сервера), аудиодорожка отключена.
-- **Audio player** — воспроизводит аудио через ALSA, видеовыход отключен.
+- **Video player** — отображает видео/изображения на дисплее через DRM (без X-сервера), аудиодорожка отключена
+- **Audio player** — воспроизводит аудиофайлы через ALSA, видеовыход отключен
 
-Такое разделение позволяет **одновременно** показывать изображение/видео на экране и воспроизводить аудиофайл или интернет-радио. Дополнительно нода принимает ROS-изображения по топику и отображает их на дисплее в реальном времени (режим стриминга).
+Такая архитектура позволяет **одновременно** показывать визуальный контент на экране и воспроизводить звук. Дополнительно поддерживается потоковый вывод ROS-изображений на дисплей в реальном времени.
+
+Также пакет содержит узел **`touch_publisher`** для чтения событий **тачскрина** из `/dev/input/event*` (evdev, multitouch) и публикации их в ROS2-топик.
 
 ---
 
-## Сервисы
+## Структура пакета
 
-### 1. `<namespace>/play_media`
+```
+media_driver/
+├── CMakeLists.txt      # Файл для CMake сборки пакета
+├── config
+│   └── media_driver.yaml   # Конфиг-файл
+├── examples
+│   ├── audio.aac       # Файлы-примеры аудио в разных форматах
+│   ├── audio.aiff
+│   ├── audio.flac
+│   ├── audio.m4a
+│   ├── audio.mp3
+│   ├── audio.ogg
+│   ├── audio.opus
+│   ├── audio.wav
+│   ├── audio.wma
+│   ├── imager.py       # Скрипт для тестирования потокового вывода изображения с камеры на дисплей
+│   ├── picture.bmp     # Файлы-примеры картинок в разных форматах
+│   ├── picture.gif
+│   ├── picture.jpeg
+│   ├── picture.png
+│   ├── picture.svg
+│   ├── picture.tif
+│   ├── picture.webp
+│   ├── touchscreen.py  # Скрипт для тестирования работы тачскрина
+│   ├── video.3gp       # Файлы-примеры видео в разных форматах
+│   ├── video.avi
+│   ├── video.flv
+│   ├── video.mkv
+│   ├── video.mov
+│   ├── video.mp4
+│   ├── video.mpeg
+│   ├── video.ts
+│   ├── video.webm
+│   └── video.wmv
+├── include             # Заголовочные файлы
+│   └── media_driver
+│       ├── mpv_player.hpp
+│       ├── node.hpp
+│       ├── touch_publisher.hpp
+│       └── utils.hpp
+├── launch              # Launch-фалы 
+│   ├── media_driver.launch.py
+│   └── touchscreen.launch.py
+├── package.xml
+├── README.md
+└── src                 # Исходный код
+    ├── main.cpp
+    ├── mpv_player.cpp
+    ├── node.cpp
+    ├── touch_publisher.cpp
+    └── utils.cpp
+```
 
-| Поле | Значение |
-|------|----------|
-| **Тип** | `robohead_interfaces/srv/PlayMedia` |
-| **Имя по умолчанию** | `play_media` (настраивается параметром `srv_play_media_name`) |
+---
 
-#### Запрос
+## Зависимости
+
+### Системные библиотеки
+- **libmpv** — медиаплеер
+- **OpenCV** — обработка изображений
+- **ALSA** — аудиовыход
+- **Linux evdev** (`<linux/input.h>`) — чтение событий тачскрина из `/dev/input/event*`
+
+### ROS2 пакеты
+- `rclcpp` — клиентская библиотека C++
+- `sensor_msgs` — стандартные сообщения для изображений
+- `cv_bridge` — конвертация ROS ↔ OpenCV
+- `robohead_interfaces` — пользовательские сервисы (`PlayMedia`, `SimpleCommand`)
+
+---
+
+## Сборка и запуск
+
+### Сборка
+
+```bash
+cd ~/robohead_ws
+colcon build --symlink-install --packages-select robohead_interfaces media_driver
+source install/setup.bash
+```
+
+### Запуск
+
+```bash
+# Запускает узел работы с медиаплеером (дисплей+аудио) и узел работы с тачскрином:
+ros2 launch media_driver media_driver.launch.py
+
+# Запускает только узел работы с медиаплеером:
+ros2 launch media_driver player.launch.py
+
+# Запускает только узел работы с тачскрином:
+ros2 launch media_driver touchscreen.launch.py
+
+```
+> При запуске используются параметры из конфиг-файла: `media_driver/config/media_driver.yaml`
+
+**Ожидаемый вывод (при запуске обоих узлов):**
+```
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [media_driver_node-1]: process started with pid [29242]
+[INFO] [touch_publisher_node-2]: process started with pid [29243]
+[touch_publisher_node-2] [INFO] [1776414096.540013704] [media_driver.touch_publisher_node]: Found: Waveshare  Waveshare -079-HD
+[touch_publisher_node-2] [INFO] [1776414096.598018581] [media_driver.touch_publisher_node]: Touch range X:[0..4096] Y:[0..4096]
+[touch_publisher_node-2] [INFO] [1776414096.598095618] [media_driver.touch_publisher_node]: Path: /dev/input/event4
+[touch_publisher_node-2] [INFO] [1776414096.598231951] [media_driver.touch_publisher_node]: INITED
+[media_driver_node-1] [INFO] [1776414096.664715001] [media_driver.media_driver]: [mpv_video] MPV player initialized successfully (type: VIDEO)
+[media_driver_node-1] [INFO] [1776414096.672550045] [media_driver.media_driver]: [audio_mpv] MPV player initialized successfully (type: AUDIO)
+[media_driver_node-1] [INFO] [1776414096.689966037] [media_driver.media_driver]: INITED
+```
+
+---
+
+## API: Сервисы
+
+### 1. `play_media` — Воспроизведение медиа
+
+**Тип:** `robohead_interfaces/srv/PlayMedia`  
+**Полное имя:** `/media_driver/play_media`
+
+#### Поля запроса
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `path_to_video_file` | `string` | Путь к видео/изображению, URL потока или `__STOP__` для остановки. Пустая строка — не трогать видеоплеер |
-| `path_to_audio_file` | `string` | Путь к аудиофайлу, URL потока или `__STOP__` для остановки. Пустая строка — не трогать аудиоплеер |
-| `loop` | `bool` | Зацикливать воспроизведение (`true` — бесконечно, `false` — однократно) |
+| `path_to_video_file` | `string` | Путь к видео/изображению, URL потока или `__STOP__` (stop_command можно изменить в конфиг-файле) для остановки.<br/>Пустая строка — не трогать видеоплеер |
+| `path_to_audio_file` | `string` | Путь к аудиофайлу, URL потока или `__STOP__` (stop_command можно изменить в конфиг-файле) для остановки.<br/>Пустая строка — не трогать аудиоплеер |
+| `loop` | `bool` | `true` — зацикленное воспроизведение, `false` — однократное |
 
-#### Ответ
+#### Поля ответа
 
-| Поле | Тип | Описание |
+| Поле | Тип | Значение |
 |------|-----|----------|
-| `data` | `int16` | Код результата |
-
-#### Коды ответа
-
-| Код | Значение |
-|-----|----------|
-| `0` | Успех |
-| `-1` | Ошибка (файл не найден, неподдерживаемый формат, сбой воспроизведения) |
-
-#### Поведение
-
-- **Пустая строка** (`""`) в `path_to_video_file` или `path_to_audio_file` — соответствующий плеер не затрагивается.
-- **Стоп-команда** (`__STOP__`, настраивается параметром `stop_command`) — останавливает соответствующий плеер.
-- **Видеоплеер** принимает файлы видео и изображений. Изображение отображается статически (до 24 часов или до замены).
-- **Аудиоплеер** принимает аудиофайлы и видеофайлы (воспроизводит только звуковую дорожку).
-- Формат определяется по **расширению файла**.
-- Поддерживаются **интернет-потоки** (HTTP, HTTPS, RTSP, RTMP и др.).
-- При загрузке нового файла предыдущее воспроизведение **автоматически останавливается**.
+| `data` | `int16` | `0` — успех<br/>`-1` — ошибка (файл не найден, неподдерживаемый формат) |
 
 #### Поддерживаемые форматы
 
 | Категория | Расширения |
 |-----------|-----------|
-| **Изображения** | `.png`, `.jpg`, `.jpeg`, `.bmp`, `.webp`, `.gif`, `.tiff`, `.tif`, `.svg`, `.heic`, `.heif` |
-| **Видео** | `.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`, `.flv`, `.wmv`, `.m4v`, `.mpeg`, `.mpg`, `.3gp`, `.ts`, `.mxf` |
-| **Аудио** | `.mp3`, `.wav`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.wma`, `.opus`, `.aiff`, `.aif`, `.midi`, `.mid`, `.amr` |
+| **Изображения** | `.png`, `.jpeg` (`.jpg`), `.bmp`, `.webp`, `.gif`, `.tiff` (`.tif`), `.svg` |
+| **Видео** | `.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`, `.flv`, `.wmv`, `.mpeg`, `.3gp`, `.ts`, `.m3u3` |
+| **Аудио** | `.mp3`, `.wav`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.wma`, `.opus`, `.aiff` |
 
-#### Поддерживаемые протоколы потоков
+#### Поддерживаемые протоколы
 
-`http://`, `https://`, `rtsp://`, `rtmp://`, `mms://`, `mmsh://`, `mmst://`, `mmsu://`, `hls://`, `dash://`, `ytdl://`
+`http://`, `https://`
 
----
+### Примеры
 
-### 2. `<namespace>/set_volume`
+> Обратите внимание: пути до файлов могут отличаться на вашем устройстве
 
-| Поле | Значение |
-|------|----------|
-| **Тип** | `robohead_interfaces/srv/SimpleCommand` |
-| **Имя по умолчанию** | `set_volume` (настраивается параметром `srv_set_volume_name`) |
-
-#### Запрос
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `data` | `int16` | Желаемая громкость (0–100) |
-
-#### Ответ
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `data` | `int16` | Установленная громкость или `-1` при ошибке |
-
-> Значение ограничивается диапазоном `[0, 100]` автоматически.
-
----
-
-### 3. `<namespace>/get_volume`
-
-| Поле | Значение |
-|------|----------|
-| **Тип** | `robohead_interfaces/srv/SimpleCommand` |
-| **Имя по умолчанию** | `get_volume` (настраивается параметром `srv_get_volume_name`) |
-
-#### Запрос
-
-Значение поля `data` игнорируется.
-
-#### Ответ
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `data` | `int16` | Текущая громкость аудиоплеера (0–100) или `-1` при ошибке |
-
----
-
-### 4. `<namespace>/is_idle/audio`
-
-| Поле | Значение |
-|------|----------|
-| **Тип** | `robohead_interfaces/srv/SimpleCommand` |
-| **Имя по умолчанию** | `is_idle/audio` (настраивается параметром `srv_is_idle_audio_name`) |
-
-#### Запрос
-
-Значение поля `data` игнорируется.
-
-#### Ответ
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `data` | `int16` | `1` — аудиоплеер простаивает (idle, пауза, EOF, ничего не загружено); `0` — воспроизведение активно |
-
----
-
-### 5. `<namespace>/is_idle/display`
-
-| Поле | Значение |
-|------|----------|
-| **Тип** | `robohead_interfaces/srv/SimpleCommand` |
-| **Имя по умолчанию** | `is_idle/display` (настраивается параметром `srv_is_idle_display_name`) |
-
-#### Запрос
-
-Значение поля `data` игнорируется.
-
-#### Ответ
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `data` | `int16` | `1` — видеоплеер простаивает; `0` — воспроизведение/отображение активно |
-
-#### Логика определения idle
-
-Плеер считается idle, если выполняется **любое** из условий:
-- Свойство MPV `idle-active = yes` (ничего не воспроизводится)
-- Воспроизведение на паузе (`pause = yes`)
-- Достигнут конец файла (`eof-reached = yes`)
-- Не загружен ни один файл (`path` пуст)
-
----
-
-## Топики
-
-### Подписки
-
-### `<namespace>/stream`
-
-| Поле | Значение |
-|------|----------|
-| **Тип** | `sensor_msgs/msg/Image` |
-| **Имя по умолчанию** | `stream` (настраивается параметром `topic_stream_name`) |
-| **QoS** | глубина очереди 1, `best_effort` |
-
-#### Описание
-
-Принимает ROS-изображения и отображает их на дисплее в реальном времени. Используется для вывода сгенерированных кадров (например, анимации глаз, интерфейса).
-
-**Механизм работы:**
-1. Входящее изображение конвертируется из ROS `Image` (формат `bgr8`) в OpenCV `Mat`.
-2. Кадр сохраняется во временный файл `/dev/shm/robohead_stream_frame.ppm` (в оперативной памяти, без записи на диск).
-3. Видеоплеер обновляет отображение через `loadfile ... replace`.
-
-> **Важно:** Стриминг обновляет только видеоплеер и **не влияет** на аудиоплеер.
-
----
-
-## Параметры конфигурации
-
-Файл: `config/media_driver.yaml`
-
-### Имена сервисов
-
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|----------|
-| `srv_play_media_name` | `string` | `"play_media"` | Имя сервиса воспроизведения |
-| `srv_set_volume_name` | `string` | `"set_volume"` | Имя сервиса установки громкости |
-| `srv_get_volume_name` | `string` | `"get_volume"` | Имя сервиса получения громкости |
-| `srv_is_idle_audio_name` | `string` | `"is_idle/audio"` | Имя сервиса проверки состояния аудио |
-| `srv_is_idle_display_name` | `string` | `"is_idle/display"` | Имя сервиса проверки состояния дисплея |
-
-### Имена топиков
-
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|----------|
-| `topic_stream_name` | `string` | `"stream"` | Имя топика для приёма кадров видеопотока |
-
-### Медиа-настройки
-
-| Параметр | Тип | По умолчанию | Описание |
-|----------|-----|-------------|----------|
-| `display_rotate` | `string` | `"270"` | Угол поворота изображения на дисплее (0, 90, 180, 270) |
-| `default_volume` | `double` | `50.0` | Начальная громкость аудиоплеера (0–100) |
-| `stop_command` | `string` | `"__STOP__"` | Строка-команда для остановки плеера в полях `path_to_video_file` / `path_to_audio_file` |
-
----
-
-## Архитектура MPV-плееров
-
-#TODO переделать картинку
-
-```
-┌─────────────────────────────────────────────┐
-│               media_driver node             │
-│                                             │
-│  ┌───────────────────┐  ┌────────────────┐  │
-│  │  Video Player     │  │  Audio Player  │  │
-│  │  vo=drm           │  │  vo=null       │  │
-│  │  ao=null (без     │  │  ao=alsa       │  │
-│  │  звука)           │  │  (без видео)   │  │
-│  │  hwdec=auto       │  │                │  │
-│  │  keep-open=yes    │  │  keep-open=yes │  │
-│  │  idle=yes         │  │  idle=yes      │  │
-│  └───────────────────┘  └────────────────┘  │
-│         ▲                      ▲            │
-│         │                      │            │
-│    play_media            play_media         │
-│    stream topic          set/get_volume     │
-└─────────────────────────────────────────────┘
-```
-
----
-
-## Примеры взаимодействия
-
-
-## Сборка
-
+**Воспроизвести аудио (тест всех форматов)**
 ```bash
-colcon build --symlink-install --packages-select robohead_interfaces media_driver
-```
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.aac', loop: false}"
 
-## Запуск
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.aiff', loop: false}"
 
-```bash
-ros2 launch media_driver media_driver.launch.py
-```
-Вывод после при успешном запуске:
-```
-[INFO] [launch]: Default logging verbosity is set to INFO
-[INFO] [media_driver_node-1]: process started with pid [15077]
-[media_driver_node-1] [INFO] [1773676180.823708121] [media_driver.media_driver]: [mpv_video] MPV player initialized successfully (type: VIDEO)
-[media_driver_node-1] [INFO] [1773676180.830781476] [media_driver.media_driver]: [audio_mpv] MPV player initialized successfully (type: AUDIO)
-[media_driver_node-1] [INFO] [1773676180.852060854] [media_driver.media_driver]: INITED
-```
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.flac', loop: false}"
 
-### Из командной строки
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.m4a', loop: false}"
 
-```bash
-# Пути к файлам могут отличаться на вашем устройстве!
-
-# Воспроизвести аудиофайл
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
   "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.mp3', loop: false}"
 
-# Показать видео на дисплее (без зацикливания)
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
-  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '', loop: false}"
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.ogg', loop: false}"
 
-# Показать видео на дисплее (c зацикливанием)
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
-  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '', loop: true}"
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.opus', loop: false}"
 
-# Показать изображение на дисплее
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.wav', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.wma', loop: false}"
+```
+
+**Воспроизвести видео (тест всех форматов)**
+
+```bash
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.3gp', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.3gp', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.avi', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.avi', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.flv', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.flv', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mkv', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mkv', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mov', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mov', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mpeg', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mpeg', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.ts', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.ts', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.webm', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.webm', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.wmv', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.wmv', loop: false}"
+```
+
+**Вывести картинку (тест всех форматов)**
+
+```bash
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.bmp', path_to_audio_file: '', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.gif', path_to_audio_file: '', loop: false}"
+
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.jpeg', path_to_audio_file: '', loop: false}"
+
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
   "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.png', path_to_audio_file: '', loop: false}"
 
-# Одновременно: видео на дисплее + аудио (зацикленное)
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
-  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.mp3', loop: true}"
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.svg', path_to_audio_file: '', loop: false}"
 
-# Остановить только аудио (видео продолжает играть)
-# Предварительно запустите воспроизведение аудио и видео
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
-  "{path_to_video_file: '', path_to_audio_file: '__STOP__', loop: false}"
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.tif', path_to_audio_file: '', loop: false}"
 
-# Остановить всё воспроизведение
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/picture.webp', path_to_audio_file: '', loop: false}"
+```
+
+**Комбинированные примеры:**
+```bash
+# Воспроизвести видео со звуком (без зацикливания)
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', loop: false}"
+
+# Прекратить воспроизведение видео и звука, очистить экран
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
   "{path_to_video_file: '__STOP__', path_to_audio_file: '__STOP__', loop: false}"
+
+# Воспроизвести видео без звука (без зацикливания). Если в момент вызова воспроизводился звук - он НЕ будет прерван.
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '', loop: false}"
+
+# Воспроизвести видео без звука (без зацикливания). Если в момент вызова воспроизводился звук - он БУДЕТ прерван.
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '__STOP__', loop: false}"
 
 # Воспроизвести интернет-радио
 ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
   "{path_to_video_file: '', path_to_audio_file: 'http://chanson.hostingradio.ru:8041/chanson256.mp3', loop: false}"
 
+# Воспроизвести интернет-стрим
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: 'http://hls.mirtv.cdnvideo.ru/mirtv-parampublish/mir24_2500/playlist.m3u8', path_to_audio_file: 'http://hls.mirtv.cdnvideo.ru/mirtv-parampublish/mir24_2500/playlist.m3u8', loop: false}"
+  
 
-# Установить громкость 75%
+# Остановить только видео (аудио продолжит играть)
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '__STOP__', path_to_audio_file: '', loop: false}"
+
+# Остановить только аудио
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '__STOP__', loop: false}"
+
+# Зациклить аудио
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/audio.mp3', loop: true}"
+
+# Зациклить видео+аудио
+ros2 service call /media_driver/play_media robohead_interfaces/srv/PlayMedia \
+  "{path_to_video_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', path_to_audio_file: '/home/pi/robohead_ws/src/robohead2/media_driver/examples/video.mp4', loop: true}"
+```
+
+---
+
+### 2. `set_volume` — Установка громкости
+
+**Тип:** `robohead_interfaces/srv/SimpleCommand`  
+**Полное имя:** `/media_driver/set_volume`
+
+#### Поля запроса
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `data` | `int16` | Желаемая громкость (0–100) |
+
+#### Поля ответа
+
+| Поле | Тип | Значение |
+|------|-----|----------|
+| `data` | `int16` | Установленная громкость или `-1` при ошибке |
+
+При выходе из диапазона от 0 до 100 устанавливает наиболее близкое допустимое значение.
+
+#### Пример
+
+```bash
 ros2 service call /media_driver/set_volume robohead_interfaces/srv/SimpleCommand "{data: 75}"
+```
 
-# Узнать текущую громкость
+---
+
+### 3. `get_volume` — Получение громкости
+
+**Тип:** `robohead_interfaces/srv/SimpleCommand`  
+**Полное имя:** `/media_driver/get_volume`
+
+В поле запроса ничего задавать не нужно - значение игнорируется.
+
+#### Поля ответа
+
+| Поле | Тип | Значение |
+|------|-----|----------|
+| `data` | `int16` | Текущая громкость (0–100) или `-1` при ошибке |
+
+#### Пример
+
+```bash
 ros2 service call /media_driver/get_volume robohead_interfaces/srv/SimpleCommand "{data: 0}"
+```
 
-# Проверить, завершено ли воспроизведение аудио
+---
+
+### 4. `is_idle/audio` — Проверка состояния аудиоплеера
+
+**Тип:** `robohead_interfaces/srv/SimpleCommand`  
+**Полное имя:** `/media_driver/is_idle/audio`
+
+В поле запроса ничего задавать не нужно - значение игнорируется.
+
+#### Поля ответа
+
+| Поле | Тип | Значение |
+|------|-----|----------|
+| `data` | `int16` | `1` — плеер простаивает (idle, пауза, EOF)<br/>`0` — активное воспроизведение |
+
+#### Логика определения idle
+
+Плеер считается idle, если выполняется **любое** условие:
+- `idle-active = yes` (ничего не загружено)
+- `pause = yes` (на паузе)
+- `eof-reached = yes` (конец файла)
+- `path` пуст (файл не загружен)
+
+#### Пример
+
+```bash
 ros2 service call /media_driver/is_idle/audio robohead_interfaces/srv/SimpleCommand "{data: 0}"
+```
 
-# Проверить, завершено ли воспроизведение видео
+---
+
+### 5. `is_idle/display` — Проверка состояния видеоплеера
+
+**Тип:** `robohead_interfaces/srv/SimpleCommand`  
+**Полное имя:** `/media_driver/is_idle/display`
+
+В поле запроса ничего задавать не нужно - значение игнорируется.
+
+#### Поля ответа
+
+| Поле | Тип | Значение |
+|------|-----|----------|
+| `data` | `int16` | `1` — дисплей простаивает<br/>`0` — активное отображение |
+
+#### Пример
+
+```bash
 ros2 service call /media_driver/is_idle/display robohead_interfaces/srv/SimpleCommand "{data: 0}"
 ```
 
-### Из другой ROS2 ноды (C++)
+---
 
-#TODO
+## API: Топики
 
-### Из другой ROS2 ноды (Python)
+### Подписка: `stream` — Потоковый вывод изображений
 
-#TODO
+**Тип:** `sensor_msgs/msg/Image`  
+**Полное имя:** `/media_driver/stream`  
+**QoS:** глубина очереди 1, `best_effort`
+
+#### Описание
+
+Принимает ROS-изображения (формат `bgr8`) и отображает их на дисплее в реальном времени. Используется для вывода динамического контента (анимации лица, интерфейса).
+
+#### Механизм работы
+
+1. Входящее изображение конвертируется в OpenCV `Mat`
+2. Кадр сохраняется в `/dev/shm/robohead_stream_frame.ppm` (RAM, без диска)
+3. Видеоплеер обновляет отображение через `loadfile ... replace`
+
+> **Важно:** Стриминг не влияет на аудиоплеер и не требует остановки текущего воспроизведения (оно остонавливается автоматически)
+
+#### Пример
+Запустите пакет usb_cam (появится топик `/image_raw`) - он получает данные с камеры и публикует их в топик
+```bash
+ros2 run usb_cam usb_cam_node_exe
+```
+В отдельном терминале перейдите в папку примеров пакета и запустите скрипт, пересылающий кадры из топика `/image_raw` в топик `/media_driver/stream`:
+```bash
+cd /home/pi/robohead_ws/src/robohead2/media_driver/examples/
+python3 imager.py
+```
+
+
+### Паблишер: `touchscreen` - публикация касаний тачскрина
+
+**Тип:** `robohead_interfaces/msg/TouchEvent`  
+**Полное имя:** `/media_driver/touchscreen`  
+**QoS:** глубина очереди 10
+
+#### Поля сообщения `TouchEvent`
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `slot` | `int` | Номер multitouch-слота (из `ABS_MT_SLOT`) |
+| `tracking_id` | `int` | Идентификатор касания (из `ABS_MT_TRACKING_ID`). На `up` остаётся последним валидным значением |
+| `x` | `int` | Координата X (после поворота), в диапазоне устройства |
+| `y` | `int` | Координата Y (после поворота), в диапазоне устройства |
+| `state` | `string` | `"down"`, `"move"`, `"up"` |
+
+#### Семантика событий
+- `"down"` публикуется в момент касания пальца тачскрина (когда для слота получен валидный `tracking_id >= 0` и есть координаты `x/y`)
+- `"move"` публикуется если палец двигается по тачскрину (только если координаты реально изменились относительно предыдущего опубликованного положения)
+- `"up"` публикуется при отрыве пальца от тачскрина (когда приходит `tracking_id = -1` для слота, слот удаляется из внутренней карты состояний)
+
+#### Поворот
+Узел читает диапазоны координат из драйвера (`EVIOCGABS` для `ABS_MT_POSITION_X/Y`, иначе `ABS_X/Y`) и использует их для вычисления `width_`/`height_`.
+
+Параметр `display_rotate` задаётся в градусах (обычно `0/90/180/270`).  
+Внутри узла применяется компенсация поворота:
+
+- берётся `r = display_rotate % 360`
+- затем фактический поворот тача делается как `rotation_deg_ = (360 - r) % 360`
+
+То есть если экран повернут, тач автоматически “поворачивается обратно”, чтобы итоговые `(x,y)` совпадали с координатами отображения.
+
+Поддерживаются углы `0/90/180/270` (быстрые ветки) и произвольные углы (через sin/cos с поворотом вокруг центра и clamp в диапазон).
+
+### Пример
+Запустите пакет `media_driver` (плеер+тачскрин)
+```bash
+ros2 launch media_driver media_driver.launch.py
+```
+В отдельном терминале перейдите в папку примеров пакета и запустите скрипт:
+```bash
+cd /home/pi/robohead_ws/src/robohead2/media_driver/examples/
+python3 touchscreen.py
+```
+При касании под пальцем будет появляться красный круг (down). При движении он сменит цвет на зеленый (move). При отрыве пальца от дисплея кружок станет синим (up).
+Если каснуться несколькими пальцами, то кружочков будет несколько.
+`s0`, `s1`,... - номера слотов (один слот - один палец). `id56`, `id57` - уникальный номер касания: остается одним и тем же, пока палец не оторван от экрана, при повторном касании инкрементируется на единицу.
+
+---
+
+## Параметры конфигурации
+
+Файл: `media_driver/config/media_driver.yaml`
+
+### Имена сервисов
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `srv_play_media_name` | `string` | `play_media` | Имя сервиса воспроизведения |
+| `srv_set_volume_name` | `string` | `set_volume` | Имя сервиса установки громкости |
+| `srv_get_volume_name` | `string` | `get_volume` | Имя сервиса получения громкости |
+| `srv_is_idle_audio_name` | `string` | `is_idle/audio` | Имя сервиса проверки состояния аудио |
+| `srv_is_idle_display_name` | `string` | `is_idle/display` | Имя сервиса проверки состояния дисплея |
+
+
+### Имена топиков
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `topic_stream_name` | `string` | `stream` | Имя топика для приёма видеопотока |
+| `topic_touchscreen_name` | `string` | `touchscreen` | Имя топика для публикации касаний тачскрина |
+
+### Настройки медиа
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `display_rotate` | `string` | `270` | Угол поворота дисплея (0, 90, 180, 270) |
+| `default_volume` | `double` | `50.0` | Начальная громкость аудиоплеера (0–100) |
+| `stop_command` | `string` | `__STOP__` | Команда для остановки плеера |
+
+
+### Настройки тачскрина
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|-------------|----------|
+| `device_name` | `string` | `waveshare` | Подстрока для поиска устройства по имени (регистронезависимо). Сравнивается с `EVIOCGNAME` |
+| `device_path` | `string` | `/dev/input/` | Путь, где искать `event*` |
+| `display_rotate` | `string` | `270` | Угол поворота дисплея (0, 90, 180, 270) |
+
+---
+
+## Дополнительные ресурсы
+
+- [Документация libmpv](https://mpv.io/manual/master/)
+- [ROS2 сервисы](https://docs.ros.org/en/jazzy/Tutorials/Services/Understanding-ROS2-Services.html)
+- [sensor_msgs/Image](https://docs.ros2.org/latest/api/sensor_msgs/msg/Image.html)
+- [evdev event-codes](https://www.kernel.org/doc/html/latest/input/event-codes.html#input-event-codes)

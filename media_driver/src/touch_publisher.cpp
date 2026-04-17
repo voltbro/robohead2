@@ -30,7 +30,6 @@ TouchPublisher::TouchPublisher()
     std::string topic_name  = this->declare_parameter<std::string>("topic_touchscreen_name", "touchscreen");
     int rot = stoi(this->declare_parameter<std::string>("display_rotate", "0"));
 
-    RCLCPP_ERROR(this->get_logger(), "Rotate: %d", rot);
     int r = rot% 360;
     if (r < 0) r += 360;
     // rotation_deg_ = r;
@@ -47,13 +46,13 @@ TouchPublisher::TouchPublisher()
         throw std::runtime_error("Cannot open touch device");
     }
 
-    RCLCPP_INFO(this->get_logger(), "Touch device: %s", device_name_.c_str());
     RCLCPP_INFO(this->get_logger(), "Path: %s", device_path_.c_str());
-    RCLCPP_INFO(this->get_logger(), "rotation_deg: %d", rotation_deg_);
 
     // Запуск потока чтения
     running_ = true;
     read_thread_ = std::make_unique<std::thread>(&TouchPublisher::readLoop, this);
+
+    RCLCPP_INFO(this->get_logger(), "INITED");
 }
 
 TouchPublisher::~TouchPublisher()
