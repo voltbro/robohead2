@@ -1,5 +1,4 @@
 
-
 # Документация: ROS2 нода `silero_tts`
 
 ## Общее описание
@@ -75,22 +74,39 @@
 
 ## Модель
 
-Модель хранится локально в директории `<package>/model/`. Загрузка из интернета **не выполняется** при работе ноды.
+Модель хранится локально в директории `silero_tts/silero_tts/model/`. Загрузка из интернета **не выполняется** при работе ноды.
 
 ### Скачивание модели (однократно, требуется интернет)
-
+При скачивании пакета из репозитория необходимо дополнительно установить модель синтеза.
 ```bash
-cd <package>/model/
+cd ~/robohead_ws/src/robohead2/silero_tts/silero_tts/model/
 ./download_model.sh
 ```
 
-### Расположение
+### Структура файлов
 
 ```
 silero_tts/
-└── model/
-    ├── download_model.sh
-    └── v5_3_ru.pt         # ~100 MB
+├── config
+│   └── silero_tts.yaml         # Конфиг-файл
+├── launch
+│   └── silero_tts.launch.py    # Launch-фал
+├── package.xml
+├── README.md                   # Документация
+├── resource
+│   └── silero_tts
+├── setup.cfg
+├── setup.py
+├── silero_tts
+│   ├── __init__.py
+│   ├── main.py                 # Главный скрипт для синтеза
+│   ├── model
+│   │   ├── download_model.sh   # Скрипт для скачивания модели 
+│   │   └── v5_3_ru.pt          # Модель для синтеза
+└── test
+    ├── test_copyright.py
+    ├── test_flake8.py
+    └── test_pep257.py
 ```
 
 ---
@@ -158,7 +174,7 @@ Silero TTS поддерживает подмножество **SSML (Speech Synt
 
 ### Использование SSML через сервис
 
-> **Важно:** При использовании SSML текст передаётся в поле `text`, но внутри ноды необходимо вызывать `model.apply_tts()` с параметром `ssml_text` вместо `text`. Нода автоматически определяет SSML по наличию тега `<speak>` в начале текста.
+> **Важно:** При использовании SSML текст передаётся в поле `text`. Нода автоматически определяет SSML по наличию тега `<speak>` в начале текста.
 
 #### Из командной строки
 
@@ -212,7 +228,7 @@ aplay /dev/shm/tmp_silero_tts.wav
 
 ```bash
 # Скачать модель (однократно)
-cd <package>/model/
+cd ~/robohead_ws/srс/robohead2/silero_tts/silero_tts/model/
 ./download_model.sh
 
 # Сборка
@@ -221,12 +237,5 @@ colcon build --symlink-install --packages-select robohead_interfaces silero_tts
 # Запуск
 ros2 launch silero_tts silero_tts.launch.py
 ```
-
-### Из другой ROS2 ноды (Python)
-#TODO
-
-### Из другой ROS2 ноды (C++)
-
-#TODO
 
 ---
