@@ -1,5 +1,3 @@
-
-
 # Документация: ROS2 пакет `speech_recognizer`
 
 ## Общее описание
@@ -17,8 +15,8 @@
 
 ```
                     ┌─────────────────────────┐
-                    │    respeaker_driver      │
-                    │  pub: audio/main         │
+                    │    respeaker_driver     │
+                    │     pub: audio/main     │
                     └───────────┬─────────────┘
                                 │ AudioData
                     ┌───────────┴─────────────┐
@@ -32,7 +30,7 @@
         │ fast commands     │     │ Grammar / Free    │
         │                   │     │                   │
         │ pub: wake_phrases │     │ pub: commands     │
-        │ pub: fast_commands│     │                   │
+        │ pub: fast_commands│     │ pub: frees        │
         └───────────────────┘     └───────────────────┘
 ```
 
@@ -49,7 +47,7 @@
 | Режим | Код | Описание |
 |-------|-----|----------|
 | Off | `0` | Распознавание отключено, аудио игнорируется |
-| On | `1` | Активное обнаружение ключевых фраз |
+| On | `1` | Активное обнаружение ключевых фраз и быстрых команд|
 
 ### Топики
 
@@ -199,7 +197,7 @@
 1. Внешняя логика вызывает `set_mode(2)`.
 2. ASR распознаёт произвольную речь (полный словарь модели).
 3. Каждая распознанная фраза публикуется в `commands`.
-4. Режим **не переключается** автоматически — остаётся активным.
+4. Режим **автоматически переключается в `0` (Off)**.
 
 ---
 
@@ -237,7 +235,7 @@ colcon build --symlink-install --packages-select robohead_interface speech_recog
 ros2 launch speech_recognizer kws.launch.py
 ```
 
-Namespace: `/kws/`
+Namespace: `/kws/...`
 
 ### Запуск только ASR
 
@@ -245,7 +243,7 @@ Namespace: `/kws/`
 ros2 launch speech_recognizer asr.launch.py
 ```
 
-Namespace: `/asr/`
+Namespace: `/asr/...`
 
 ### Запуск обеих нод
 
@@ -253,7 +251,7 @@ Namespace: `/asr/`
 ros2 launch speech_recognizer speech_recognizer.launch.py
 ```
 
-Namespace: `/speech_recognizer/kws/` и `/speech_recognizer/asr/`
+Namespace: `/speech_recognizer/kws/...` и `/speech_recognizer/asr/...`
 
 ---
 
@@ -288,14 +286,6 @@ ros2 topic echo /speech_recognizer/kws/fast_commands
 ros2 topic echo /speech_recognizer/asr/commands
 ```
 
-### Из другой ROS2 ноды (Python)
-
-#TODO
-
-### Из другой ROS2 ноды (C++)
-
-#TODO
-
 ---
 
 ## Модели Vosk
@@ -305,7 +295,6 @@ ros2 topic echo /speech_recognizer/asr/commands
 | Модель | Размер | Описание |
 |--------|--------|----------|
 | `vosk-model-small-ru-0.22` | ~45 МБ | Компактная русская модель (рекомендуется) |
-| `vosk-model-small-ru-0.21` | ~45 МБ | Предыдущая версия |
 | `vosk-model-ru-0.42` | ~1.8 ГБ | Полная русская модель (высокая точность), но чрезмерно тяжёлая для Raspberry Pi 5 |
 
 Скачать модели: [https://alphacephei.com/vosk/models](https://alphacephei.com/vosk/models)

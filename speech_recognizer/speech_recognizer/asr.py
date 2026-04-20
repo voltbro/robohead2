@@ -119,7 +119,7 @@ class SpeechRecognizer(Node):
                 self.current_mode = 0
                 self.get_logger().info(f"Mode switched to Off")
 
-        elif self.current_mode == 2: 
+        elif self.current_mode == 2:  # Free
             if self.free_rec.AcceptWaveform(data):
                 res = json.loads(self.free_rec.Result())
                 text = res.get('text', '').strip()

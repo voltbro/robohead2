@@ -29,7 +29,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            f'{package_name}_node = {package_name}.main:main',
             f'{package_name}_kws_node = {package_name}.kws:main',
             f'{package_name}_asr_node = {package_name}.asr:main',
 
