@@ -16,7 +16,7 @@
                                   # Явно: 1..6 — количество каналов ReSpeaker
       main_channel: 0             # номер "основного" канала (используется другими модулями)
                                   # Для 1 канала = 0
-      device_name_primary: "ReSpeaker"   # имя аудиоустройства для поиска (PortAudio)
+      device_name_primary: "reSpeaker"   # имя аудиоустройства для поиска (PortAudio)
       device_name_fallback: "Mic Array"  # запасное имя (после USB reset имя может измениться)
 
     doa_yaw_offset: 0.0  # смещает нулевое положение doa_angle (градусы)

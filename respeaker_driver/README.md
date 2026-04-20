@@ -16,12 +16,12 @@
 
 ## Поддерживаемые устройства
 
-| Модель | Чип | VID | PID | Каналы | LED | Яркость |
-|--------|-----|-----|-----|--------|-----|---------|
-| ReSpeaker Mic Array v2.0 | XVF3000 | `0x2886` | `0x0018` | до 6 | 12 шт. | 0–31 |
-| ReSpeaker USB Mic Array | XVF3800 | `0x2886` | `0x001A` | до 6 | 12 шт. | 0–255 |
+| Модель | Чип | VID | PID | Каналы | LED | 
+|--------|-----|-----|-----|--------|-----|
+| ReSpeaker Mic Array v2.0 | XVF3000 | `0x2886` | `0x0018` | до 6 | 12 шт. | 
+| ReSpeaker USB Mic Array | XVF3800 | `0x2886` | `0x001A` | до 6 | 12 шт. |
 
-При `vendor_id = 0` и `product_id = 0` устройство определяется автоматически (сначала проверяется XVF3800, затем XVF3000).
+При `vendor_id = 0` и `product_id = 0` в конфиг-файле устройство определяется автоматически (сначала проверяется XVF3800, затем XVF3000).
 
 ---
 
@@ -260,39 +260,11 @@
 
 ---
 
-## Архитектура
-
-#TODO сделать картинку новую
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                      respeaker_driver node                       │
-│                   (MultiThreadedExecutor)                        │
-│                                                                  │
-│  ┌──────────────────────┐        ┌─────────────────────────────┐  │
-│  │    AudioHandler      │        │       UsbHandler            │  │
-│  │  (PortAudio)         │        │  (libusb)                   │  │
-│  │                      │        │                             │  │
-│  │  Захват аудио        │──────▶│  DOA (Direction of Arrival) │  │
-│  │  16-bit, N каналов   │ frame  │  LED control                │  │
-│  │  sample_rate Hz      │callback│                             │  │
-│  │                      │        │  ┌───────────┐ ┌──────────┐ │  │
-│  │  pub: audio/main     │        │  │ XVF3000   │ │ XVF3800  │ │  │
-│  │  pub: audio/channel_N│        │  │ handler   │ │ handler  │ │  │
-│  └──────────────────────┘        │  └───────────┘ └──────────┘ │  │
-│                                  └─────────────────────────────┘  │
-│         ▲                                    ▲                    │
-│         │                                    │                    │
-│    PortAudio stream                    USB control transfer       │
-│    /dev/snd/*                          /dev/bus/usb/*             │
-└──────────────────────────────────────────────────────────────────┘
-```
-
 ### Поток данных
 
-1. **PortAudio callback** заполняет буфер → публикует аудиоданные по каналам → вызывает `onAudioFrame()`.
-2. **onAudioFrame()** читает DOA-угол с устройства по USB → публикует в топик `doa`.
-3. **Сервисы/топики LED** передают команды в `UsbHandler` → USB control transfer на устройство.
+1. **PortAudio callback** заполняет буфер -> публикует аудиоданные по каналам -> вызывает `onAudioFrame()`.
+2. **onAudioFrame()** читает DOA-угол с устройства по USB -> публикует в топик `doa`.
+3. **Сервисы/топики LED** передают команды в `UsbHandler` -> USB control transfer на устройство.
 
 ---
 
@@ -358,6 +330,24 @@ ros2 service call /respeaker_driver/set_brightness robohead_interfaces/srv/Simpl
 ros2 service call /respeaker_driver/set_color_all robohead_interfaces/srv/Color \
   "{red: 255, green: 0, blue: 0}"
 
+# Установить каждый LED в отдельный цвет
+ros2 topic pub /respeaker_driver/set_color_manual robohead_interfaces/msg/ColorArray 'colors: [
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0},
+{"red":255, "green":255, "blue":0}
+]'
+
 # Установить палитру (зелёный + синий)
 ros2 service call /respeaker_driver/set_color_palette robohead_interfaces/srv/ColorPalette \
   "{color_a: {red: 0, green: 255, blue: 0}, color_b: {red: 0, green: 0, blue: 255}}"
@@ -371,15 +361,6 @@ ros2 topic echo /respeaker_driver/audio/main
 # Проверить частоту публикации аудио
 ros2 topic hz /respeaker_driver/audio/main
 ```
-
-### Из другой ROS2 ноды (C++)
-
-#TODO 
-
-### Из другой ROS2 ноды (Python)
-
-#TODO
-
 ---
 
 
