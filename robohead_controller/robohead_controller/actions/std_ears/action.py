@@ -1,6 +1,7 @@
 # std_ears
 # действие, выполняющееся при команде "Покажи уши"
 
+# Импорты нужны для автоподстановок кода при работе через VSCode
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import os
@@ -19,50 +20,44 @@ def run(
         action_name: Команда, по которой было вызвано действие
         cancel_event: threading.Event для проверки отмены
     """
-    action_dir = os.path.dirname(os.path.abspath(__file__))
+    action_dir = os.path.dirname(os.path.abspath(__file__)) # Путь к папке со скриптом, обычно это:
+    # /home/pi/robohead_ws/build/robohead_controller/robohead_controller/actions/std_ears
 
-    logger = controller.get_logger()
-    logger.info(f"[{action_name}] start")
+    logger = controller.get_logger()        # logger - объект логирования, через него можно печатать в консоль
+    logger.info(f"[{action_name}] start")   # выводим в терминал "[std_ears] start"
 
-    # Переключаем режим микрофона ReSpeaker
-    # controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=30)
-    # controller.respeaker_driver.set_led_color_all(
-    # cancel_event=cancel_event, red=255, green=255, blue=255
-    # )
-    # controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
-
-    # Выводим картинку ears.png
+    # Выводим картинку ears.png без зацикливания воспроизведения (это же картинка) и блокирования вызова
     controller.media_driver.play_display(
         cancel_event=cancel_event,
         video_path=os.path.join(action_dir, "ears.png"),
-        loop=True,
+        loop=False,
         block=False,
     )
 
-    # Проигрываем звук ears.mp3
+    # Проигрываем звук ears.mp3 без зацикливания воспроизведения и блокирования вызова
     controller.media_driver.play_audio(
         cancel_event=cancel_event,
         audio_path=os.path.join(action_dir, "ears.mp3"),
         loop=False,
         block=False,
-    )
+    ) 
 
-    for k in range(5):
+    for k in range(5): # Цикл 5 раз
         # Поворачиваем голову
         controller.neck_driver.set_angle(
             cancel_event=cancel_event,
-            horizontal=15 * (-1) ** k,
-            vertical=15,
-            duration=0.5,
-            block=False,
+            horizontal=15 * (-1) ** k,  # значения будут: 15, -15, 15, -15, 15
+            vertical=15,    # Вертикальный подьем головы 15 градусов
+            duration=0.5,   # Длительность достижения заданной позиции 0.5 секунд
+            block=False,    # Вызов без блокирования
         )
         # Поворачиваем уши
         controller.ears_driver.set_angle(
             cancel_event=cancel_event,
-            left=90 * (-1) ** k,
-            right=-90 * (-1) ** k,
-            duration=0.5,
-            block=True,
+            left=90 * (-1) ** k,    # Значения поворота левого уха: 90, -90, 90, -90, 90
+            right=-90 * (-1) ** k,  # Значения поворота правого уха: -90, 90, -90, 90, -90
+            duration=0.5,   # Длительность достижения заданной позиции 0.5 секунд
+            block=True,     # Блокирующий вызов: программа здесь "зависнет" на 0.5 секунд (duration)
         )
 
-    logger.info(f"[{action_name}] finish")
+    logger.info(f"[{action_name}] finish")  # выводим в терминал "[std_ears] finish"
