@@ -1,0 +1,31 @@
+/**:
+  ros__parameters:
+    t_start_max: 10.0 # Начали распознавание и ждём это количество сек, чтоб принять решение что тишина
+    t_end: 0.9 # Кол-во секунд после последнего слова, после которого считаем что фраза окончена
+    t_max: 10.0 # Максимальная длительность одной фразы
+    default_mode: 0
+    # 0 off recognition
+    # 1 commands recognition
+    # 2 free recognition
+    sample_rate: 16000
+    model_path: 'vosk-model-small-ru-0.22'
+    timeout_text: '__TIMEOUT__'
+
+    commands:
+      - 'покажи уши'
+      - 'покажи левое ухо'
+      - 'покажи правое ухо'
+      - 'поздоровайся'
+      - 'сделай фото'
+      - 'повтори за мной'
+      - 'ответь на вопрос'
+      - 'следи за шариком'
+      - 'покажи напряжение'
+
+    ros:
+      service_name:
+        set_mode: 'set_mode'
+      topic_name:
+        commands: 'commands'
+        free: 'free'
+        audio_input: '/robohead/respeaker_driver/audio/main'

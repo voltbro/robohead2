@@ -26,8 +26,10 @@ from .core.commander import Commander
 
 
 class RoboheadController(Node):
-    def __init__(self):
+    def __init__(self, package_dir:str):
         super().__init__("robohead_controller")
+
+        self._package_dir: str = package_dir
 
         self._low_voltage_threshold: float = cast(
             float, self.declare_parameter("low_voltage_threshold", 0.0).value
@@ -93,11 +95,11 @@ class RoboheadController(Node):
             dict[str, str]: словарь {имя_действия: полный_путь_к_файлу}
         """
         actions_match: dict[str, str] = json.loads(actions_match_raw)
-        package_dir: str = os.path.dirname(os.path.abspath(__file__))
+        
 
         for key in actions_match.keys():
             actions_match[key] = os.path.join(
-                package_dir, "actions", actions_match[key]
+                self._package_dir, "actions", actions_match[key]
             )
 
         return actions_match

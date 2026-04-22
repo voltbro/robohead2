@@ -7,16 +7,16 @@ import rclpy
 import os
 from rclpy.executors import MultiThreadedExecutor
 
-from robohead_controller.controller import RoboheadController
+from brover_controller.controller import BRoverController
 
 
 def main(args: list[str] | None = None) -> None:
     rclpy.init(args=args)
 
-    controller: RoboheadController | None = None
+    controller: BRoverController | None = None
 
     try:
-        controller = RoboheadController(package_dir=os.path.dirname(os.path.abspath(__file__)))
+        controller = BRoverController(package_dir=os.path.dirname(os.path.abspath(__file__)))
 
         # Подключение всех драйверов
         controller.connect_all_drivers()
