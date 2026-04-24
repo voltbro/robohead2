@@ -8,6 +8,8 @@
       srv_is_idle_display_name: "/robohead/media_driver/is_idle/display"
       topic_stream_name: "/robohead/media_driver/stream"
       stop_command: "__STOP__"
+      topic_touchscreen_name: "/robohead/media_driver/touchscreen"
+
     
     ears_driver:
       srv_ears_set_angle_name: "/robohead/ears_driver/ears_set_angle"
@@ -79,6 +81,7 @@
         "повтори за мной" :   "std_echo/action.py",
         "ответь на вопрос" :  "std_llm/action.py",
         "покажи напряжение" : "std_show_voltage/action.py",
+        "покажи нос" :        "std_nose/action.py",
         "громче" :            "std_volume_up/action.py",
         "тише" :              "std_volume_down/action.py"
       }

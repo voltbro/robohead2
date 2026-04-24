@@ -39,6 +39,16 @@ def generate_launch_description():
                         PathJoinSubstitution([pkg_robohead_controller, 'config','media_driver.yaml'])
                     ]
                 ),
+                Node(
+                    package='media_driver',
+                    executable='touch_publisher_node',
+                    name='touch_publisher_node',
+                    namespace='media_driver',
+                    output='screen',
+                    parameters=[PathJoinSubstitution([
+                        pkg_robohead_controller, 'config', 'media_driver.yaml'])
+                    ],
+                ),
 
                 # # # === neck_driver ===
                 Node(

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, cast, Optional
+from typing import TYPE_CHECKING, cast, Optional, Callable, Dict, List
 import threading
 
 if TYPE_CHECKING:
@@ -8,8 +8,18 @@ if TYPE_CHECKING:
     from rclpy.publisher import Publisher
 
 from robohead_interfaces.srv import PlayMedia, SimpleCommand
+from robohead_interfaces.msg import TouchEvent
 from sensor_msgs.msg import Image
 
+from dataclasses import dataclass
+
+@dataclass
+class TouchPoint:
+    slot: int
+    tracking_id: int
+    x: int
+    y: int
+    state: str  # "down", "move", "up"
 
 class MediaDriverConnector:
 
@@ -23,6 +33,11 @@ class MediaDriverConnector:
         self._srv_is_idle_display: Optional[Client] = None
         self._pub_stream: Optional[Publisher] = None
         self._stop_command: str = "__STOP__"
+
+        self._sub_touchscreen: Optional[object] = None
+        self._touch_points: Dict[int, TouchPoint] = {}
+        self._touch_callbacks: List[Callable[[TouchEvent], None]] = []
+        self._touch_lock = threading.Lock()
 
     @property
     def stop_command(self) -> str:
@@ -96,6 +111,18 @@ class MediaDriverConnector:
             msg_type=Image, topic=topic_stream_name, qos_profile=1
         )
 
+        topic_touchscreen_name: str = str(
+            self.controller.declare_parameter(
+                "media_driver.topic_touchscreen_name", "touchscreen"
+            ).value
+        )
+        self._sub_touchscreen = self.controller.create_subscription(
+            msg_type=TouchEvent,
+            topic=topic_touchscreen_name,
+            callback=self._on_touch_event,
+            qos_profile=10
+        )
+
         while not self._srv_play_media.wait_for_service(
             timeout_sec=self.controller.wait_timeout
         ):
@@ -129,6 +156,26 @@ class MediaDriverConnector:
 
         self.controller.get_logger().info("media_driver connected")
         return True
+
+    def _on_touch_event(self, msg: TouchEvent) -> None:
+        for cb in self._touch_callbacks:
+            try:
+                cb(msg)
+            except Exception as e:
+                self.controller.get_logger().error(f"Touch callback error: {e}")
+
+        with self._touch_lock:
+            if msg.state == "up":
+                self._touch_points.pop(msg.tracking_id, None)
+            else:
+                self._touch_points[msg.tracking_id] = TouchPoint(
+                    slot=msg.slot,
+                    tracking_id=msg.tracking_id,
+                    x=msg.x,
+                    y=msg.y,
+                    state=msg.state
+                )
+
 
     def is_idle_audio(self, cancel_event: threading.Event) -> int | None:
         """
@@ -410,3 +457,28 @@ class MediaDriverConnector:
             self.controller.get_logger().error(
                 "Try to call media_driver.stream_publish() but media_driver._pub_stream is None. Skip call..."
             )
+
+
+    def register_touch_callback(self, callback: Callable[[TouchEvent], None]) -> None:
+        self._touch_callbacks.append(callback)
+
+    def unregister_touch_callback(self, callback: Callable[[TouchEvent], None]) -> None:
+        if callback in self._touch_callbacks:
+            self._touch_callbacks.remove(callback)
+
+    def get_active_touches(self) -> List[TouchPoint]:
+        with self._touch_lock:
+            return [TouchPoint(**vars(tp)) for tp in self._touch_points.values()]
+
+    def get_touch(self, tracking_id: int) -> Optional[TouchPoint]:
+        with self._touch_lock:
+            tp = self._touch_points.get(tracking_id)
+            return TouchPoint(**vars(tp)) if tp else None
+
+    def is_touched(self) -> bool:
+        with self._touch_lock:
+            return bool(self._touch_points)
+
+    def clear_touch_state(self) -> None:
+        with self._touch_lock:
+            self._touch_points.clear()
