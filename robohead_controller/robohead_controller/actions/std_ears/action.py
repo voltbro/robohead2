@@ -42,7 +42,18 @@ def run(
         block=False,
     ) 
 
+    # Переключаем режим микрофона ReSpeaker
+    controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=100)
+    controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
     for k in range(5): # Цикл 5 раз
+        if k%2 == 0: # Мигаем микрофоном
+            controller.respeaker_driver.set_led_color_all(
+            cancel_event=cancel_event, red=0, green=0, blue=255
+            )
+        else:
+            controller.respeaker_driver.set_led_color_all(
+            cancel_event=cancel_event, red=255, green=128, blue=0
+            )
         # Поворачиваем голову
         controller.neck_driver.set_angle(
             cancel_event=cancel_event,

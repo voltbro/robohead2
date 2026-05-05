@@ -25,7 +25,8 @@ def run(
     logger.info(f"[{action_name}] start")
 
     # Переключаем режим микрофона ReSpeaker
-    controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=0)
+    controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=30)
+    controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=1)
 
     # Выводим анимацию attention.mp4
     controller.media_driver.play_display(

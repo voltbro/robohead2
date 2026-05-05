@@ -71,6 +71,16 @@ def run(
         # === Отрисовка кругового таймера по краю экрана ===
         # Вычисляем долю оставшегося времени (от 1.0 до 0.0)
         fraction_left = max(0.0, 1.0 - (elapsed_sec / DURATION_SEC))
+        colors = list()
+        for i in range(12):
+            colors.append(0)
+            if i <= int(fraction_left*12):
+                colors.append(255)
+            else:
+                colors.append(0)
+            colors.append(0)
+        controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
+        controller.respeaker_driver.set_led_color_manual(cancel_event=cancel_event, colors=colors)
 
         # Вычисляем угол дуги. -90 градусов в OpenCV — это ровно верхняя точка (12 часов)
         start_angle = -90

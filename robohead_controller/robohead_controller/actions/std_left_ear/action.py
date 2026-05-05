@@ -25,11 +25,11 @@ def run(
     logger.info(f"[{action_name}] start")
 
     # Переключаем режим микрофона ReSpeaker
-    # controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=30)
-    # controller.respeaker_driver.set_led_color_all(
-    # cancel_event=cancel_event, red=255, green=255, blue=255
-    # )
-    # controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
+    controller.respeaker_driver.set_led_brightness(cancel_event=cancel_event, value=100)
+    controller.respeaker_driver.set_led_color_all(
+    cancel_event=cancel_event, red=0, green=0, blue=255
+    )
+    controller.respeaker_driver.set_led_mode(cancel_event=cancel_event, mode=3)
 
     # Выводим картинку left_ear.png
     controller.media_driver.play_display(
