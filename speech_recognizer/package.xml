@@ -2,8 +2,8 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>speech_recognizer</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <version>2.0.0</version>
+  <description>ROS2 Jazzy package for STT (speech to text) based on Vosk</description>
   <maintainer email="kolesnikovpi2005@mail.ru">pi</maintainer>
   <license>TODO: License declaration</license>
 

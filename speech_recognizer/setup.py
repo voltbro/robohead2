@@ -24,7 +24,7 @@ setup(
     zip_safe=False,
     maintainer='kolez-pi',
     maintainer_email='kolesnikovpi2005@mail.ru',
-    description='Vosk-based Russian speech recognizer for ROS 2',
+    description='ROS2 Jazzy package for STT (speech to text) based on Vosk',
     license='TODO',
     tests_require=['pytest'],
     entry_points={

@@ -3,7 +3,7 @@
 <package format="3">
   <name>respeaker_driver</name>
   <version>2.0.0</version>
-  <description>Package for get audio from respeaker usb mic array and control it.</description>
+  <description>Package for get audio from respeaker array (XVF3000, XVF3800) and control it through USB (LED ring).</description>
   <maintainer email="kolesnikovpi2005@mail.ru">kolezo-pi</maintainer>
   <author email="kolesnikovpi2005@mail.ru">kolezo-pi</author>
   <license>TODO</license>

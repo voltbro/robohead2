@@ -24,7 +24,7 @@ setup(
     zip_safe=False,
     maintainer='kolezo-pi',
     maintainer_email='kolesnikovpi2005@mail.ru',
-    description='Silero TTS based ROS 2 tts package',
+    description='ROS2 Jazzy package for Russian TTS (text to speech) based on silero. Automatically playback through mpv (media_driver)',
     license='TODO',
     tests_require=['pytest'],
     entry_points={
