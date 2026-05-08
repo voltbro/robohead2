@@ -8,6 +8,52 @@
 using namespace std::chrono_literals;
 using namespace MPV;
 
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+/**
+ * Ищет аудиокарту, в названии которой содержится указанный паттерн.
+ * Возвращает строку формата "alsa/plughw:X,0"
+ */
+std::string MPV::find_audio_device(const std::string& pattern) {
+    namespace fs = std::filesystem;
+    
+    // Приводим паттерн к нижнему регистру для поиска
+    std::string pattern_low = pattern;
+    std::transform(pattern_low.begin(), pattern_low.end(), pattern_low.begin(), ::tolower);
+
+    // Перебираем индексы карт от 0 до 7 (обычно их не больше)
+    for (int i = 0; i < 8; ++i) {
+        std::string card_path = "/proc/asound/card" + std::to_string(i);
+        std::string id_file_path = card_path + "/id";
+
+        if (fs::exists(id_file_path)) {
+            std::ifstream id_file(id_file_path);
+            std::string card_id;
+            
+            if (id_file >> card_id) {
+                // Переводим ID карты в нижний регистр
+                std::string card_id_low = card_id;
+                std::transform(card_id_low.begin(), card_id_low.end(), card_id_low.begin(), ::tolower);
+
+                // Если паттерн найден в ID
+                if (card_id_low.find(pattern_low) != std::string::npos) {
+                    // Возвращаем строку с ИНДЕКСОМ карты
+                    return "alsa/plughw:" + std::to_string(i) + ",0";
+                }
+            }
+        }
+    }
+
+    // Если ничего не нашли, пробуем default
+    return "alsa/default";
+}
+
+
+
 MPVPlayer::MPVPlayer(rclcpp::Logger logger, const struct MPV::Config config) : logger_(logger), config_(config)
 {
   RCLCPP_DEBUG(logger_, "[%s] Creating MPVPlayer (type: %s, volume: %f)",
@@ -192,9 +238,12 @@ bool MPVPlayer::configure_audio_player()
     return false;
   }
 
-  if (mpv_set_option_string(mpv_handle_, "audio-device", "alsa") < 0)
+  std::string device = find_audio_device("Array");
+  RCLCPP_INFO(logger_, "[%s] Auto-detected audio device: %s", config_.name.c_str(), device.c_str());
+
+  if (mpv_set_option_string(mpv_handle_, "audio-device", device.c_str()) < 0)
   {
-    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'audio-device=auto'", config_.name.c_str());
+    RCLCPP_FATAL(logger_, "[%s] Failed to set option 'audio-device'", config_.name.c_str());
     return false;
   }
 

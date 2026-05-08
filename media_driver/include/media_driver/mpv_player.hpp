@@ -27,7 +27,7 @@ namespace MPV
     int command_timeout_ms = 10;     // Пауза после команды stop/load
     std::string rotate = "0";            // 0-359 в градусах
   };
-
+  std::string find_audio_device(const std::string& pattern);
   class MPVPlayer
   {
   public:
