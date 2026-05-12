@@ -1,0 +1,20 @@
+/**:
+  ros__parameters:
+
+    srv_set_volume_name: "set_volume"
+    srv_get_volume_name: "get_volume"
+    srv_play_media_name: "play_media"
+    srv_is_idle_audio_name: "is_idle/audio"
+    srv_is_idle_display_name: "is_idle/display"
+
+
+    topic_stream_name: "stream"
+    stop_command: "__STOP__"  # Команда для остановки воспроизведения (видео либо звука)
+
+    display_rotate: "270" # Поворот картинки дисплея (по часовой стрелке), 0-359 градусов
+    default_volume: 60.0  # Громкость по-умолчанию при запуске
+
+    # touchscreen config:
+    device_name: "waveshare"
+    device_path: "/dev/input/"
+    topic_touchscreen_name: "touchscreen"
