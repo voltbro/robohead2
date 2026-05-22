@@ -1,0 +1,318 @@
+:root {
+    color-scheme: dark;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #111315;
+    color: #f4f1e8
+}
+
+* {
+    box-sizing: border-box
+}
+
+body {
+    margin: 0;
+    min-height: 100vh
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    background: #1b1f22;
+    border-bottom: 1px solid #2d3438;
+    position: sticky;
+    top: 0;
+    z-index: 2
+}
+
+h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: 0
+}
+
+p {
+    margin: 4px 0 0;
+    color: #9fb0b6
+}
+
+.status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: #d8e9d2;
+    font-size: 14px;
+    justify-content: flex-end
+}
+
+main {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+    padding: 12px
+}
+
+.panel {
+    background: #1a1d20;
+    border: 1px solid #2d3438;
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 0
+}
+
+.panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #9fb0b6;
+    text-transform: uppercase;
+    margin-bottom: 10px
+}
+
+.camera-panel,
+.draw-panel {
+    grid-column: span 6
+}
+
+.controls,
+.tts,
+.led,
+.media {
+    grid-column: span 3
+}
+
+#camera {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: contain;
+    background: #08090a;
+    border: 1px solid #333b40;
+    border-radius: 6px;
+    display: block
+}
+
+canvas {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #333b40;
+    border-radius: 6px;
+    display: block;
+    touch-action: none
+}
+
+#paint {
+    aspect-ratio: 1/1
+}
+
+label {
+    display: grid;
+    gap: 6px;
+    margin: 10px 0;
+    color: #c7d1d5;
+    font-size: 14px
+}
+
+input,
+select,
+textarea,
+button {
+    font: inherit;
+    border-radius: 6px;
+    border: 1px solid #384247;
+    background: #101214;
+    color: #f4f1e8
+}
+
+input,
+select,
+textarea {
+    padding: 9px;
+    width: 100%
+}
+
+input[type=range] {
+    padding: 0;
+    height: 34px;
+    accent-color: #6ee7b7
+}
+
+input[type=range]::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px
+}
+
+input[type=range]::-moz-range-thumb {
+    width: 28px;
+    height: 28px
+}
+
+input[type=color] {
+    height: 44px;
+    padding: 3px;
+    min-width: 58px
+}
+
+button {
+    padding: 9px 12px;
+    cursor: pointer;
+    background: #263136;
+    min-height: 40px
+}
+
+button:hover {
+    background: #314047
+}
+
+button.active {
+    background: #1f7a5f;
+    border-color: #6ee7b7
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: wrap
+}
+
+.row>* {
+    flex: 1
+}
+
+.tools label {
+    margin: 0
+}
+
+/* .tools>label:first-child {
+    flex: 0 0 70px
+} */
+
+.brush-label {
+    flex: 2 1 220px
+}
+
+.camera-tools {
+    margin-top: 10px
+}
+
+.modes button {
+    flex: 1 1 40px
+}
+
+textarea {
+    resize: vertical;
+    min-height: 84px
+}
+
+.joystick {
+    width: min(100%, 260px);
+    aspect-ratio: 1/1;
+    margin: 4px auto 10px;
+    border-radius: 50%;
+    border: 1px solid #3a464c;
+    background: radial-gradient(circle at 50% 50%, #29343a 0 18%, #14191c 19% 100%);
+    position: relative;
+    touch-action: none
+}
+
+.joystick:before,
+.joystick:after {
+    content: "";
+    position: absolute;
+    background: #344047
+}
+
+.joystick:before {
+    left: 50%;
+    top: 8%;
+    bottom: 8%;
+    width: 1px
+}
+
+.joystick:after {
+    top: 50%;
+    left: 8%;
+    right: 8%;
+    height: 1px
+}
+
+.stick {
+    width: 28%;
+    aspect-ratio: 1/1;
+    border-radius: 50%;
+    background: #6ee7b7;
+    border: 3px solid #d8fff0;
+    box-shadow: 0 8px 22px #0008;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%)
+}
+
+.readout {
+    text-align: center;
+    color: #c7d1d5;
+    font-size: 14px;
+    margin: 6px 0 10px
+}
+
+@media(max-width:1000px) {
+
+    .camera-panel,
+    .draw-panel {
+        grid-column: span 12
+    }
+
+    .controls,
+    .tts,
+    .led,
+    .media {
+        grid-column: span 6
+    }
+}
+
+@media(max-width:640px) {
+    header {
+        align-items: flex-start;
+        flex-direction: column
+    }
+
+    main {
+        grid-template-columns: 1fr
+    }
+
+    .panel,
+    .camera-panel,
+    .draw-panel,
+    .controls,
+    .tts,
+    .led,
+    .media {
+        grid-column: span 1
+    }
+
+    .brush-label {
+        flex: 1 1 100%
+    }
+
+    input[type=range] {
+        height: 44px
+    }
+}
+
+.tools > label:nth-child(1),
+.tools > label:nth-child(2) {
+    flex: 1 1 calc(50% - 4px);
+}
+
+/* Ползунок занимает 100% второй строки */
+.brush-label {
+    flex: 1 1 100% !important;
+    margin-bottom: 4px; /* Небольшой отступ перед кнопкой */
+}
+
+/* Кнопка занимает 100% третьей строки */
+#clearPaint {
+    flex: 1 1 100%;
+}

@@ -56,6 +56,7 @@ target_link_libraries(${PROJECT_NAME}_node
 # ── Python scripts ──
 install(PROGRAMS
   scripts/audio_to_wav.py
+  scripts/echo_player.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
