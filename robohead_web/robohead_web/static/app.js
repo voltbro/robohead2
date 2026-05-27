@@ -4,6 +4,11 @@ const paint = $('paint');
 const paintCtx = paint.getContext('2d');
 const joystick = $('joystick');
 const stick = $('stick');
+const mediaUpload = $('mediaUpload');
+const uploadMediaBtn = $('uploadMedia');
+const mediaLoop = $('mediaLoop');
+const uploadProgress = $('uploadProgress');
+
 let ws;
 let audioWs;
 let audioCtx;
@@ -18,6 +23,8 @@ let joystickActive = false;
 let lastNeckSentAt = 0;
 let neckTimer = null;
 let pendingNeck = null;
+let isSyncing = false;
+let pendingSync = null;  // Очередь для отложенной синхронизации
 
 function applyPaintBackground(send = true) {
   const color = $('background').value;
@@ -28,21 +35,163 @@ function applyPaintBackground(send = true) {
 }
 applyPaintBackground(false);
 
+
+uploadMediaBtn.onclick = async () => {
+  const file = mediaUpload.files[0];
+  if (!file) {
+    alert('Выберите файл для загрузки');
+    return;
+  }
+  
+  // Валидация размера (макс 100 МБ)
+  if (file.size > 100 * 1024 * 1024) {
+    alert('Файл слишком большой (макс 100 МБ)');
+    return;
+  }
+  
+  const loop = mediaLoop.checked;
+  uploadProgress.textContent = `Загрузка ${file.name}...`;
+  uploadMediaBtn.disabled = true;
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('loop', loop ? 'true' : 'false');
+    
+    const res = await fetch('/api/media/upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const result = await res.json();
+    
+    if (result.ok) {
+      uploadProgress.textContent = `✅ ${file.name} загружен и воспроизводится`;
+      // Обновляем поля путей для отображения
+      $('videoPath').value = result.path;
+      $('audioPath').value = result.path; // Для видео со звуком — одинаковый путь
+    } else {
+      uploadProgress.textContent = `❌ Ошибка: ${result.error}`;
+    }
+  } catch (e) {
+    uploadProgress.textContent = `❌ Ошибка сети: ${e.message}`;
+    console.error('Upload error:', e);
+  } finally {
+    uploadMediaBtn.disabled = false;
+    // Очищаем инпут, чтобы можно было загрузить тот же файл повторно
+    mediaUpload.value = '';
+    setTimeout(() => { uploadProgress.textContent = ''; }, 3000);
+  }
+};
+
 function connect() {
+  if (ws) {
+    ws.onopen = null;
+    ws.onclose = null;
+    ws.onerror = null;
+    ws.onmessage = null;
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      ws.close();  // принудительное закрытие
+    }
+  }
+
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
-  ws.onopen = () => connection.textContent = 'connected';
-  ws.onclose = () => { connection.textContent = 'disconnected'; setTimeout(connect, 1000); };
-  ws.onerror = () => connection.textContent = 'error';
+  ws.onopen = () => connection.textContent = 'Подключено';
+  ws.onclose = () => { connection.textContent = 'Отключено'; setTimeout(connect, 500); };
+  ws.onerror = () => connection.textContent = 'Ошибка';
   ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type === 'status') renderStatus(msg.data);
+    try {
+      const msg = JSON.parse(ev.data);
+
+      if (msg.type === 'status') {
+        renderStatus(msg.data);
+      } 
+      
+      else if (msg.type === 'canvas_history') {
+        // При подключении получаем полную историю
+        replayCanvasHistory(msg.commands);
+      } 
+      
+      else if (msg.type === 'draw') {
+        // 🟢 Пришло рисование от ДРУГОГО пользователя
+        // Рисуем линию локально, но НЕ отправляем её обратно на сервер
+        paintCtx.strokeStyle = msg.color;
+        paintCtx.lineWidth = msg.size * 2;
+        paintCtx.lineCap = 'round';
+        paintCtx.beginPath();
+        paintCtx.moveTo(msg.x0, msg.y0);
+        paintCtx.lineTo(msg.x1, msg.y1);
+        paintCtx.stroke();
+        
+        // Обновляем lastRemote, чтобы если мы начнем рисовать, линия продолжилась верно
+        lastRemote = {x: msg.x1, y: msg.y1};
+      } 
+      
+      else if (msg.type === 'clear') {
+        // 🟢 Пришла очистка от ДРУГОГО пользователя
+        applyPaintBackground(false); // false = не отправлять ответ
+        $('background').value = msg.color;
+      }
+
+    } catch (e) {
+      console.error('WS parse error:', e);
+    }
   };
 }
 connect();
 
 function renderStatus(s) {
-  $('battery').textContent = s.battery ? `battery: ${s.battery.voltage}V ${s.battery.current}A` : 'battery: --';
-  $('doa').textContent = s.doa === null ? 'doa: --' : `doa: ${s.doa} deg`;
+  $('battery').textContent = s.battery ? `Батарея: ${s.battery.voltage}V ${s.battery.current}A` : 'Батарея: --';
+  $('doa').textContent = s.doa ? `DoA: ${s.doa} градусов` : 'DoA: --';
+}
+function replayCanvasHistory(commands) {
+  if (isSyncing) return;  // Защита от рекурсии
+  isSyncing = true;
+  
+  try {
+    // Сохраняем текущее состояние, если что-то рисуем
+    let tempImageData = null;
+    if (drawing && last) {
+      tempImageData = paintCtx.getImageData(0, 0, paint.width, paint.height);
+    }
+    
+    // Очищаем и перерисовываем историю
+    paintCtx.clearRect(0, 0, paint.width, paint.height);
+    
+    for (const cmd of commands) {
+      if (cmd.type === 'clear') {
+        paintCtx.fillStyle = cmd.color;
+        paintCtx.fillRect(0, 0, paint.width, paint.height);
+        $('background').value = cmd.color;
+      } else if (cmd.type === 'draw') {
+        paintCtx.strokeStyle = cmd.color;
+        paintCtx.lineWidth = cmd.size * 2;
+        paintCtx.lineCap = 'round';
+        paintCtx.beginPath();
+        paintCtx.moveTo(cmd.x0, cmd.y0);
+        paintCtx.lineTo(cmd.x1, cmd.y1);
+        paintCtx.stroke();
+      }
+    }
+    
+    // Восстанавливаем текущую линию, если она была
+    if (tempImageData) {
+      paintCtx.putImageData(tempImageData, 0, 0);
+    }
+    
+    // Сбрасываем lastRemote, но НЕ drawing!
+    lastRemote = null;
+    
+  } finally {
+    isSyncing = false;
+    
+    // 🟢 Применяем отложенную синхронизацию, если она пришла
+    if (pendingSync && !drawing) {
+      const sync = pendingSync;
+      pendingSync = null;
+      replayCanvasHistory(sync);
+    }
+  }
 }
 
 async function post(url, data) {
@@ -60,11 +209,11 @@ function setStick(horizontal, vertical) {
   const y = -vertical / 30;
   stick.style.left = `${50 + x * 36}%`;
   stick.style.top = `${50 + y * 36}%`;
-  $('neckReadout').textContent = `V ${vertical} / H ${horizontal}`;
+  $('neckReadout').textContent = `V ${vertical} | H ${horizontal}`;
 }
 
 function sendNeckNow(vertical, horizontal) {
-  const payload = {type: 'neck', vertical, horizontal, duration: 0.06};
+  const payload = {type: 'neck', vertical, horizontal, duration: 0.00};
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
   else post('/api/neck', payload);
   lastNeckSentAt = performance.now();
@@ -74,7 +223,7 @@ function sendNeck(vertical, horizontal, immediate = false) {
   setStick(horizontal, vertical);
   pendingNeck = {vertical, horizontal};
   const elapsed = performance.now() - lastNeckSentAt;
-  if (immediate || elapsed > 45) {
+  if (immediate || elapsed > 10) {
     clearTimeout(neckTimer);
     sendNeckNow(vertical, horizontal);
     return;
@@ -82,7 +231,7 @@ function sendNeck(vertical, horizontal, immediate = false) {
   clearTimeout(neckTimer);
   neckTimer = setTimeout(() => {
     if (pendingNeck) sendNeckNow(pendingNeck.vertical, pendingNeck.horizontal);
-  }, 45 - elapsed);
+  }, 10 - elapsed);
 }
 
 function joystickPoint(ev) {
@@ -114,7 +263,7 @@ window.addEventListener('touchend', endJoystick);
 setStick(0, 0);
 
 function sendEars() {
-  post('/api/ears', {left: +$('earL').value, right: +$('earR').value, duration: 0.1});
+  post('/api/ears', {left: +$('earL').value, right: +$('earR').value, duration: 0.0});
 }
 $('earL').oninput = sendEars;
 $('earR').oninput = sendEars;
@@ -130,7 +279,20 @@ $('volume').onchange = () => post('/api/volume', {value: +$('volume').value});
 $('setLed').onclick = () => post('/api/led/color', {color: $('ledColor').value});
 $('brightness').onchange = () => post('/api/led/brightness', {value: +$('brightness').value});
 document.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => post('/api/led/mode', {mode: +b.dataset.mode}));
-$('playMedia').onclick = () => post('/api/media', {video_path: $('videoPath').value, audio_path: $('audioPath').value, loop: false});
+// $('playMedia').onclick = () => post('/api/media', {video_path: $('videoPath').value, audio_path: $('audioPath').value, loop: false});
+
+$('playMedia').onclick = () => {
+  const videoPath = $('videoPath').value;
+  const audioPath = $('audioPath').value;
+  const loop = mediaLoop.checked; // Берём значение из чекбокса
+  
+  post('/api/media', {
+    video_path: videoPath,
+    audio_path: audioPath,
+    loop: loop
+  });
+};
+
 $('stopMedia').onclick = () => post('/api/media', {video_path: '__STOP__', audio_path: '__STOP__', loop: false});
 $('clearPaint').onclick = () => applyPaintBackground(true);
 $('background').onchange = () => applyPaintBackground(true);
@@ -165,12 +327,23 @@ function moveDraw(ev) {
   sendDrawSegment(lastRemote || last, p, false);
   last = p;
 }
+
 function endDraw() {
-  if (drawing && lastRemote && last) sendDrawSegment(lastRemote, last, true);
+  if (drawing && lastRemote && last) {
+    sendDrawSegment(lastRemote, last, true);
+  }
   drawing = false;
   last = null;
   lastRemote = null;
+  
+  // 🟢 Если во время рисования пришла синхронизация — применим её сейчас
+  if (pendingSync) {
+    const sync = pendingSync;
+    pendingSync = null;
+    replayCanvasHistory(sync);
+  }
 }
+
 paint.addEventListener('mousedown', startDraw);
 paint.addEventListener('mousemove', moveDraw);
 window.addEventListener('mouseup', endDraw);

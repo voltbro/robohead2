@@ -83,5 +83,7 @@
         "покажи напряжение" : "std_show_voltage/action.py",
         "покажи нос" :        "std_nose/action.py",
         "громче" :            "std_volume_up/action.py",
-        "тише" :              "std_volume_down/action.py"
+        "тише" :              "std_volume_down/action.py",
+        "system_charging" :   "system_charging/action.py",
+        "system_discharging" :"system_discharging/action.py"
       }

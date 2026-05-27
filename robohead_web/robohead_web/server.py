@@ -21,6 +21,11 @@ from robohead_interfaces.srv import ColorPalette, Move, PlayMedia, SimpleCommand
 from sensor_msgs.msg import BatteryState, Image
 from std_msgs.msg import Int32
 
+import json  # Добавьте, если ещё нет
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 class RoboheadWebNode(Node):
     def __init__(self) -> None:
@@ -59,6 +64,34 @@ class RoboheadWebNode(Node):
         self.canvas_height = 1080
         self.canvas = np.full((self.canvas_height, self.canvas_width, 3), 255, dtype=np.uint8)
         self.canvas_lock = threading.Lock()
+
+        self.canvas_history: list[dict] = []
+        self.max_history_len = 3000  # Лимит команд, чтобы не забить память
+        self.history_lock = threading.Lock()
+        self.ws_clients: set[web.WebSocketResponse] = set()  # Список активных соединений
+
+    def broadcast(self, message: dict, exclude: web.WebSocketResponse = None) -> None:
+        """
+        Рассылает сообщение всем клиентам, кроме 'exclude'
+        """
+        dead_clients = set()
+        msg_str = json.dumps(message) # Сериализуем один раз для скорости
+        
+        for ws in self.ws_clients:
+            if ws == exclude:
+                continue
+            if ws.closed:
+                dead_clients.add(ws)
+                continue
+            
+            try:
+                ws.send_str(msg_str)
+            except RuntimeError:
+                dead_clients.add(ws)
+        
+        # Чистим список от отключившихся клиентов
+        if dead_clients:
+            self.ws_clients -= dead_clients
 
     def on_camera(self, msg: Image) -> None:
         with self.lock:
@@ -141,20 +174,39 @@ class RoboheadWebNode(Node):
             msg.data = self.canvas.tobytes()
         self.pub_display.publish(msg)
 
-    def clear_canvas(self, color: tuple[int, int, int] = (255, 255, 255)) -> None:
-        with self.canvas_lock:
-            self.canvas[:, :] = color
-        self.publish_canvas()
-
     def draw_line(self, x0: int, y0: int, x1: int, y1: int, color: tuple[int, int, int], size: int) -> None:
         x0 = clamp(x0, 0, self.canvas_width - 1)
         x1 = clamp(x1, 0, self.canvas_width - 1)
         y0 = clamp(y0, 0, self.canvas_height - 1)
         y1 = clamp(y1, 0, self.canvas_height - 1)
         thickness = max(1, int(size) * 2)
+        
         with self.canvas_lock:
             cv2.line(self.canvas, (x0, y0), (x1, y1), color, thickness=thickness, lineType=cv2.LINE_AA)
         self.publish_canvas()
+        
+        # 📝 Запись команды в историю
+        cmd = {
+            "type": "draw",
+            "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+            "color": f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}",
+            "size": size
+        }
+        with self.history_lock:
+            self.canvas_history.append(cmd)
+            if len(self.canvas_history) > self.max_history_len:
+                del self.canvas_history[:len(self.canvas_history) - self.max_history_len]
+
+    def clear_canvas(self, color: tuple[int, int, int] = (255, 255, 255)) -> None:
+        with self.canvas_lock:
+            self.canvas[:, :] = color
+        self.publish_canvas()
+        
+        #  Очистка истории и запись команды сброса
+        hex_color = f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
+        with self.history_lock:
+            self.canvas_history.clear()
+            self.canvas_history.append({"type": "clear", "color": hex_color})
 
 
 class WebApp:
@@ -180,7 +232,112 @@ class WebApp:
             web.post('/api/led/palette', self.led_palette),
             web.post('/api/led/manual', self.led_manual),
             web.post('/api/draw/clear', self.draw_clear),
+            web.post('/api/media/upload', self.media_upload),
         ])
+        self.app.on_startup.append(self._start_sync)
+        self.app.on_cleanup.append(self._stop_sync)
+
+
+    async def media_upload(self, request: web.Request) -> web.Response:
+        """Загрузка медиафайла и немедленное воспроизведение (исправленная версия)"""
+        try:
+            reader = await request.multipart()
+            
+            file_data = None
+            filename = None
+            loop = False  # По умолчанию зацикливание выключено
+            
+            # 🔄 Перебираем ВСЕ поля формы (порядок не важен)
+            async for field in reader:
+                if field.name == 'file':
+                    file_data = await field.read(decode=False)
+                    filename = field.filename or 'uploaded_media'
+                    
+                elif field.name == 'loop':
+                    loop_value = await field.text()
+                    loop = loop_value.lower() in ('true', '1', 'yes')
+            
+            # Валидация: файл обязателен
+            if not file_data or not filename:
+                return web.json_response({'ok': False, 'error': 'no_file_received'}, status=400)
+            
+            # Определяем расширение из имени файла
+            ext = Path(filename).suffix.lower()
+            if not ext or ext == '.bin':
+                # Fallback: пробуем определить по Content-Type из заголовков
+                content_type = field.headers.get('Content-Type', '') if 'field' in locals() else ''
+                if 'video' in content_type: ext = '.mp4'
+                elif 'image' in content_type: ext = '.jpg'
+                elif 'audio' in content_type: ext = '.mp3'
+                else: ext = '.bin'
+            
+            # Сохранение файла
+            upload_dir = Path('/tmp/robohead_media')
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            
+            saved_path = upload_dir / f'media{ext}'
+            
+            with open(saved_path, 'wb') as f:
+                f.write(file_data)
+            
+            # ✅ Логируем через правильный логгер
+            logger.info(f'✅ Uploaded: {saved_path} ({len(file_data)} bytes), loop={loop}')
+            
+            # 🎬 Запуск воспроизведения через ROS сервис
+            req = PlayMedia.Request()
+            req.path_to_video_file = str(saved_path)
+            req.path_to_audio_file = str(saved_path)  # Для видео со звуком
+            req.loop = loop
+            
+            result = await self.call(self.node.play_media_client, req, timeout=10.0)
+            
+            return web.json_response({
+                'ok': True,
+                'path': str(saved_path),
+                'loop': loop,
+                'size': len(file_data)
+            })
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            # ✅ Логируем ошибку через правильный логгер
+            logger.error(f'❌ Media upload error: {e}')
+            
+            # Возвращаем валидный JSON даже при ошибке
+            return web.json_response({'ok': False, 'error': str(e)}, status=500)
+
+    async def _start_sync(self, app):
+        self._sync_task = asyncio.create_task(self._canvas_sync_loop())
+
+    async def _stop_sync(self, app):
+        if self._sync_task:
+            self._sync_task.cancel()
+            try: await self._sync_task
+            except asyncio.CancelledError: pass
+
+    async def _canvas_sync_loop(self):
+        while True:
+            await asyncio.sleep(2.0)
+            if not self.node.ws_clients:
+                continue
+            
+            # Берём копию под блокировкой, чтобы не конфликтовать с ROS-потоком
+            with self.node.history_lock:
+                if not self.node.canvas_history:
+                    continue
+                payload = json.dumps({"type": "canvas_history", "commands": self.node.canvas_history})
+            
+            # Рассылаем всем подключённым клиентам
+            disconnected = set()
+            for client in self.node.ws_clients:
+                try:
+                    if not client.closed:
+                        await client.send_str(payload)
+                except Exception:
+                    disconnected.add(client)
+            for dead in disconnected:
+                self.node.ws_clients.discard(dead)
 
     def static_dir(self) -> Path:
         here = Path(__file__).resolve().parent / 'static'
@@ -244,13 +401,28 @@ class WebApp:
     async def ws(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=20)
         await ws.prepare(request)
+        
+        # 1. Регистрируем клиента
+        self.node.ws_clients.add(ws)
+        
+        # 2. Отправляем полную историю новому клиенту
+        with self.node.history_lock:
+            if self.node.canvas_history:
+                # Отправляем одним пакетом
+                await ws.send_json({
+                    'type': 'canvas_history', 
+                    'commands': self.node.canvas_history
+                })
+
         sender = asyncio.create_task(self.ws_sender(ws))
         try:
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
-                    await self.handle_ws_message(msg.json())
+                    # Передаем ws в обработчик, чтобы знать, кого исключить при рассылке
+                    await self.handle_ws_message(msg.json(), sender_ws=ws)
         finally:
             sender.cancel()
+            self.node.ws_clients.discard(ws)  # Удаляем при отключении
         return ws
 
     async def ws_sender(self, ws: web.WebSocketResponse) -> None:
@@ -258,13 +430,30 @@ class WebApp:
             await ws.send_json({'type': 'status', 'data': self.node.status()})
             await asyncio.sleep(0.5)
 
-    async def handle_ws_message(self, data: dict[str, Any]) -> None:
+    async def handle_ws_message(self, data: dict[str, Any], sender_ws: web.WebSocketResponse) -> None:
         kind = data.get('type')
+        
         if kind == 'draw':
-            self.node.draw_line(data.get('x0', 0), data.get('y0', 0), data.get('x1', 0), data.get('y1', 0), parse_color(data.get('color', '#111111')), int(data.get('size', 12)))
+            # 1. Рисуем на сервере (ROS) и сохраняем в историю
+            self.node.draw_line(
+                data.get('x0', 0), data.get('y0', 0), 
+                data.get('x1', 0), data.get('y1', 0), 
+                parse_color(data.get('color', '#111111')), 
+                int(data.get('size', 12))
+            )
+            
+            # 2. Рассылаем всем, КРОМЕ того, кто прислал (sender_ws)
+            self.node.broadcast(data, exclude=sender_ws)
+
         elif kind == 'clear':
+            # 1. Очищаем на сервере
             self.node.clear_canvas(parse_color(data.get('color', '#ffffff')))
+            
+            # 2. Рассылаем команду очистки всем остальным
+            self.node.broadcast(data, exclude=sender_ws)
+
         elif kind == 'neck':
+            # Шею не рассылываем, это локальное управление
             self.send_neck(data.get('vertical', 0), data.get('horizontal', 0), data.get('duration', 0.08))
 
     async def body(self, request: web.Request) -> dict[str, Any]:

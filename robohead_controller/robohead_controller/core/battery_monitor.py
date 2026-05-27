@@ -5,6 +5,9 @@ if TYPE_CHECKING:
     from ..controller import RoboheadController
     from rclpy.timer import Timer
 
+from sensor_msgs.msg import BatteryState
+
+
 
 class BatteryMonitor:
     """Мониторинг состояния батареи и реакция на низкое напряжение."""
@@ -12,6 +15,8 @@ class BatteryMonitor:
     def __init__(self, controller: RoboheadController):
         self.controller: RoboheadController = controller
         self.controller.is_allow_work = False
+
+        self._current_status = None
 
         self._timer: Optional[Timer] = self.controller.create_timer(
             0.5, self._battery_monitor_tick
@@ -25,6 +30,15 @@ class BatteryMonitor:
         # Ждём первого сообщения от сенсора
         if voltage is None:
             return
+        
+        if self._current_status is None:
+            self._current_status = self.controller.sensor_driver.battery_power_supply_status
+        elif self._current_status != self.controller.sensor_driver.battery_power_supply_status:
+            self._current_status = self.controller.sensor_driver.battery_power_supply_status
+            if self.controller.sensor_driver.battery_power_supply_status == BatteryState.POWER_SUPPLY_STATUS_CHARGING:
+                self.controller.action_manager.execute_action("system_charging", None, False)
+            elif self.controller.sensor_driver.battery_power_supply_status == BatteryState.POWER_SUPPLY_STATUS_DISCHARGING:
+                self.controller.action_manager.execute_action("system_discharging", None, False)
 
         low_threshold: float = self.controller.low_voltage_threshold
         recover_threshold: float = (

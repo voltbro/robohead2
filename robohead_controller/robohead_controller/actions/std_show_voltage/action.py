@@ -31,6 +31,26 @@ PROGRESS_THICKNESS = 30  # Толщина кольца
 
 DURATION_SEC = 8.0  # Время показа
 
+def float_to_volts_text(number: float) -> str:
+    # Округляем до 1 знака и разбиваем на целую и дробную части
+    num_str = f"{number:.1f}"
+    int_part, frac_part = map(int, num_str.split('.'))
+    
+    # Списки слов (в женском роде, так как согласуются с "долями")
+    words_int = ["", "одна", "две", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять"]
+    words_frac = ["ноль", "одна", "две", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять"]
+    
+    # Окончания для целой части (одна целая, остальные — целых)
+    int_unit = "целая" if int_part == 1 else "целых"
+    
+    # Окончания для дробной части (одна десятая, остальные — десятых)
+    frac_unit = "десятая" if frac_part == 1 else "десятых"
+    
+    # Правило для слова "вольт": если дробь .0 — то "вольт", для всех остальных — "вольта"
+    volt_unit = "вольт" if frac_part == 0 else "вольта"
+    
+    # Собираем итоговую строку
+    return f"{words_int[int_part]} {int_unit} {words_frac[frac_part]} {frac_unit} {volt_unit}"
 
 def run(
     controller: RoboheadController, action_name: str, cancel_event: threading.Event
@@ -45,6 +65,9 @@ def run(
     logger.info(f"[{action_name}] start")
 
     cv_bridge = CvBridge()
+
+    voltage = controller.sensor_driver.battery_voltage if controller.sensor_driver.battery_voltage is not None else 0
+    controller.silero_tts.say(cancel_event=cancel_event, text=f"Напряжение батареи {float_to_volts_text(voltage)}", block=False)
 
     # Засекаем время старта
     start_time = controller.get_clock().now()
