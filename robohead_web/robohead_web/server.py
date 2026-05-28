@@ -6,7 +6,7 @@ import signal
 import threading
 from pathlib import Path
 from typing import Any
-
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from aiohttp import WSMsgType, web
 from aiohttp.client_exceptions import ClientConnectionResetError
 import cv2
@@ -35,6 +35,14 @@ class RoboheadWebNode(Node):
 
         self.pub_display = self.create_publisher(Image, '/robohead/media_driver/stream', 1)
         self.pub_led_manual = self.create_publisher(ColorArray, '/robohead/respeaker_driver/set_color_manual', 10)
+        # 🎤 Паблишер для стрима голоса с клиента
+        # self.pub_audio_stream = self.create_publisher(AudioData, '/robohead/media_driver/audio_stream', 10)
+        qos_voice = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE
+        )
+        self.pub_audio_stream = self.create_publisher(AudioData, '/robohead/media_driver/audio_stream', qos_voice)
 
         self.neck_client = self.create_client(Move, '/robohead/neck_driver/neck_set_angle')
         self.ears_client = self.create_client(Move, '/robohead/ears_driver/ears_set_angle')
@@ -259,6 +267,29 @@ class RoboheadWebNode(Node):
             self.canvas_history.clear()
             self.canvas_history.append({"type": "clear", "color": hex_color})
 
+    def publish_client_audio(self, pcm_bytes: bytes) -> None:
+        """Публикует сырой PCM аудио от веб-клиента в ROS топик"""
+        try:
+            if not pcm_bytes:
+                return
+            
+            # Конвертируем bytes → list[int16] для ROS сообщения
+            # Используем numpy для скорости, но можно и без него
+            import numpy as np
+            samples = np.frombuffer(pcm_bytes, dtype=np.int16).tolist()
+            
+            if not samples:
+                return
+            
+            msg = AudioData()
+            msg.data = samples
+            # sample_rate и channels по умолчанию 16000/1 — как ожидает media_driver
+            
+            self.pub_audio_stream.publish(msg)
+            
+        except Exception as e:
+            self.get_logger().warning(f'client_audio publish error: {e}')
+
 
 class WebApp:
     def __init__(self, node: RoboheadWebNode) -> None:
@@ -472,8 +503,15 @@ class WebApp:
                     # Передаем ws в обработчик, чтобы знать, кого исключить при рассылке
                     await self.handle_ws_message(msg.json(), sender_ws=ws)
                 elif msg.type == WSMsgType.BINARY:
-                    # Передаём сырые байты в обработчик
-                    self.node.handle_video_frame(msg.data)
+                    data = msg.data
+                    
+                    # Проверяем сигнатуру видео: первые 4 байта 'VID\0'
+                    if len(data) >= 4 and data[0:4] == b'VID\x00':
+                        # Это видео-фрейм — обрабатываем как раньше
+                        self.node.handle_video_frame(data)
+                    else:
+                        # 🎤 Это аудио-данные (сырой PCM int16) — публикуем в ROS
+                        self.node.publish_client_audio(data)
         finally:
             sender.cancel()
             self.node.ws_clients.discard(ws)  # Удаляем при отключении
@@ -666,6 +704,8 @@ def clamp(value: Any, low: int, high: int) -> int:
 
 
 def main() -> None:
+    package_dir=os.path.dirname(os.path.abspath(__file__))
+
     rclpy.init()
     node = RoboheadWebNode()
     executor = MultiThreadedExecutor(num_threads=4)
@@ -678,7 +718,10 @@ def main() -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+
     async def start() -> None:
+        node.get_logger().info(f'Package dir {package_dir}')
+
         runner = web.AppRunner(WebApp(node).app)
         await runner.setup()
         runner_redirect = None
@@ -688,7 +731,7 @@ def main() -> None:
         use_ssl = False
         
         try:
-            ssl_context.load_cert_chain('ssl/cert.pem', 'ssl/key.pem')
+            ssl_context.load_cert_chain(package_dir+'/ssl/cert.pem', package_dir+'/ssl/key.pem')
             use_ssl = True
             node.get_logger().info(' SSL certificates loaded. HTTPS enabled.')
         except FileNotFoundError:

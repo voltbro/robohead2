@@ -41,6 +41,15 @@ const STREAM_WIDTH = 640;
 const STREAM_HEIGHT = 480;
 const STREAM_FPS = 15;
 
+// 🎤 Стриминг голоса на робота
+let voiceStreamActive = false;
+let voiceStreamInterval = null;
+let micStream = null;
+let audioProcessor = null;
+let audioContext = null;
+const VOICE_SAMPLE_RATE = 16000;
+const VOICE_CHUNK_MS = 20;  // 20 мс = 320 сэмплов @ 16kHz
+
 function applyPaintBackground(send = true) {
   const color = $('background').value;
   paintCtx.fillStyle = color;
@@ -535,4 +544,109 @@ function stopCameraStream() {
     
     // Возвращаем холст в исходное состояние
     applyPaintBackground(false);
+}
+
+
+// 🎛️ Обработчик кнопки трансляции голоса
+$('voiceStreamBtn').onclick = toggleVoiceStream;
+
+async function toggleVoiceStream() {
+    if (voiceStreamActive) {
+        stopVoiceStream();
+        return;
+    }
+
+    try {
+        // Запрашиваем доступ к микрофону
+        micStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { 
+                echoCancellation: true,
+                noiseSuppression: true,
+                sampleRate: VOICE_SAMPLE_RATE,
+                channelCount: 1 
+            } 
+        });
+
+        // Инициализируем AudioContext (если ещё не создан)
+        audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        await audioContext.resume();
+
+        // Создаём источник и процессор
+        const source = audioContext.createMediaStreamSource(micStream);
+        
+        // ScriptProcessor для захвата аудио (устаревший, но самый совместимый)
+        // 1024 буфер = ~64мс @ 16kHz, но мы отправляем чаще
+        audioProcessor = audioContext.createScriptProcessor(1024, 1, 1);
+        
+        let pendingBuffer = [];
+        
+        let lastSendTime = 0;
+        audioProcessor.onaudioprocess = (e) => {
+            if (!voiceStreamActive || !ws || ws.readyState !== WebSocket.OPEN) return;
+            
+            const rawInput = e.inputBuffer.getChannelData(0);
+            const inputRate = audioContext.sampleRate; // Обычно 44100 или 48000
+            const targetRate = 16000;
+            
+            //  Ресемплинг в 16000 Гц (линейная интерполяция)
+            let resampled;
+            if (inputRate === targetRate) {
+                resampled = rawInput;
+            } else {
+                const ratio = inputRate / targetRate;
+                const outLen = Math.floor(rawInput.length / ratio);
+                resampled = new Float32Array(outLen);
+                for (let i = 0; i < outLen; i++) {
+                    const src = i * ratio;
+                    const i0 = Math.floor(src);
+                    const i1 = Math.min(i0 + 1, rawInput.length - 1);
+                    const frac = src - i0;
+                    resampled[i] = rawInput[i0] * (1 - frac) + rawInput[i1] * frac;
+                }
+            }
+            
+            // Конвертация float32 → int16
+            const int16Data = new Int16Array(resampled.length);
+            for (let i = 0; i < resampled.length; i++) {
+                const s = Math.max(-1, Math.min(1, resampled[i]));
+                int16Data[i] = s < 0 ? s * 32768 : s * 32767;
+            }
+            
+            // Отправляем
+            ws.send(int16Data.buffer);
+        };
+
+        // Соединяем цепочку: микрофон → процессор → (никуда, нам не нужен вывод)
+        source.connect(audioProcessor);
+        audioProcessor.connect(audioContext.destination); // Нужно для работы onaudioprocess
+
+        voiceStreamActive = true;
+        $('voiceStreamBtn').textContent = '🛑 Остановить трансляцию';
+        $('voiceStreamBtn').classList.add('active');
+        
+        console.log('🎤 Voice stream started');
+
+    } catch (err) {
+        console.error('Voice stream error:', err);
+        alert('Не удалось получить доступ к микрофону: ' + (err.message || err));
+    }
+}
+
+function stopVoiceStream() {
+    voiceStreamActive = false;
+    
+    if (audioProcessor) {
+        audioProcessor.disconnect();
+        audioProcessor = null;
+    }
+    
+    if (micStream) {
+        micStream.getTracks().forEach(track => track.stop());
+        micStream = null;
+    }
+    
+    $('voiceStreamBtn').textContent = '🎤 Трансляция голоса';
+    $('voiceStreamBtn').classList.remove('active');
+    
+    console.log('🎤 Voice stream stopped');
 }

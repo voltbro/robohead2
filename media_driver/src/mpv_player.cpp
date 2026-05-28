@@ -558,6 +558,8 @@ bool MPVPlayer::play_from_pipe(const std::string& pipe_path, int sample_rate, in
 
     mpv_set_property_string(mpv_handle_, "demuxer-readahead-secs", "0");
     mpv_set_property_string(mpv_handle_, "cache-secs", "0");
+    // mpv_set_property_string(mpv_handle_, "cache", "yes");
+    // mpv_set_property_string(mpv_handle_, "demuxer-max-bytes", "64KiB"); 
     mpv_set_property_string(mpv_handle_, "force-window", "no");
 
     // Очень важно: запретить mpv закрывать демуксер при временном отсутствии данных

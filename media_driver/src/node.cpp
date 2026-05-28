@@ -87,7 +87,7 @@ MediaDriverNode::MediaDriverNode()
 
         sub_audio_stream_ = this->create_subscription<robohead_interfaces::msg::AudioData>(
             "audio_stream",
-            rclcpp::QoS(10).best_effort(),
+            rclcpp::QoS(1).best_effort(),
             [this](const robohead_interfaces::msg::AudioData::SharedPtr msg) { handle_stream_audio(msg); });
 
         // RCLCPP_INFO(this->get_logger(), "Audio stream ready: %s", audio_fifo_path_.c_str());
