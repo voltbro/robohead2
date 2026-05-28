@@ -44,6 +44,7 @@ namespace MPV
     bool is_idle() const;
     double set_volume(double volume); // 0.0-100.0
     double get_volume() const;
+    bool play_from_pipe(const std::string& pipe_path, int sample_rate = 16000, int channels = 1);
 
     // Ожидание событий с поддержкой отмены
     bool is_eof();

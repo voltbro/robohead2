@@ -367,6 +367,12 @@ bool MPVPlayer::play(const std::string &path, bool loop)
     return false;
   }
 
+  mpv_set_property_string(mpv_handle_, "audio-format", "auto");
+  mpv_set_property_string(mpv_handle_, "audio-samplerate", "auto");
+  mpv_set_property_string(mpv_handle_, "audio-channels", "auto");
+
+  mpv_set_property_string(mpv_handle_, "demuxer", "");
+
   if (!check_file_exists(path))
   {
     RCLCPP_ERROR(logger_, "[%s] File not found: %s", config_.name.c_str(), path.c_str());
@@ -531,4 +537,46 @@ bool MPVPlayer::is_idle() const {
 
     // Все проверки пройдены → активное воспроизведение
     return false;
+}
+
+
+bool MPVPlayer::play_from_pipe(const std::string& pipe_path, int sample_rate, int channels)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!mpv_handle_) {
+        RCLCPP_ERROR(logger_, "[%s] Cannot play from pipe: not initialized", config_.name.c_str());
+        return false;
+    }
+
+    safe_command({"stop"});
+
+    mpv_set_property_string(mpv_handle_, "demuxer-rawaudio-rate", std::to_string(sample_rate).c_str());
+    mpv_set_property_string(mpv_handle_, "demuxer-rawaudio-channels", std::to_string(channels).c_str());
+
+    mpv_set_property_string(mpv_handle_, "demuxer", "rawaudio");
+    mpv_set_property_string(mpv_handle_, "demuxer-rawaudio-format", "s16le"); // S16_LE
+
+    mpv_set_property_string(mpv_handle_, "demuxer-readahead-secs", "0");
+    mpv_set_property_string(mpv_handle_, "cache-secs", "0");
+    mpv_set_property_string(mpv_handle_, "force-window", "no");
+
+    // Очень важно: запретить mpv закрывать демуксер при временном отсутствии данных
+    mpv_set_property_string(mpv_handle_, "keep-open", "always");
+    
+ 
+    std::string url = "file://" + pipe_path;
+
+
+    int r = safe_command({"loadfile", url.c_str(), "replace"});
+
+    if (r < 0) {
+        RCLCPP_ERROR(logger_, "[%s] MPV loadfile failed: code=%d, path=%s", 
+                     config_.name.c_str(), r, url.c_str());
+        return false;
+    }
+
+    mpv_set_property_string(mpv_handle_, "pause", "no");
+    RCLCPP_INFO(logger_, "[%s] Audio stream started: %s @ %dHz, %dch", 
+                config_.name.c_str(), url.c_str(), sample_rate, channels);
+    return true;
 }
