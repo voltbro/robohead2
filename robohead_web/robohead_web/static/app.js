@@ -26,6 +26,21 @@ let pendingNeck = null;
 let isSyncing = false;
 let pendingSync = null;  // Очередь для отложенной синхронизации
 
+// 📷 Переменные для локальной камеры
+let localStream = null;
+let videoEl = null;
+let cameraActive = false;
+let cameraAnimFrame = null;
+// 📹 Стриминг камеры на сервер
+let cameraStreamActive = false;
+let cameraStreamInterval = null;
+let localVideoEl = null;
+let captureCanvas = null;
+let captureCtx = null;
+const STREAM_WIDTH = 640;
+const STREAM_HEIGHT = 480;
+const STREAM_FPS = 15;
+
 function applyPaintBackground(send = true) {
   const color = $('background').value;
   paintCtx.fillStyle = color;
@@ -213,7 +228,7 @@ function setStick(horizontal, vertical) {
 }
 
 function sendNeckNow(vertical, horizontal) {
-  const payload = {type: 'neck', vertical, horizontal, duration: 0.00};
+  const payload = {type: 'neck', vertical, horizontal, duration: 0.0};
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
   else post('/api/neck', payload);
   lastNeckSentAt = performance.now();
@@ -253,7 +268,9 @@ function moveJoystick(ev) {
   const p = joystickPoint(ev);
   sendNeck(p.vertical, p.horizontal);
 }
-function endJoystick() { if (!joystickActive) return; joystickActive = false; sendNeck(0, 0, true); }
+// function endJoystick() { if (!joystickActive) return; joystickActive = false; sendNeck(0, 0, true); }
+function endJoystick() { if (!joystickActive) return; joystickActive = false; }
+
 joystick.addEventListener('mousedown', startJoystick);
 window.addEventListener('mousemove', moveJoystick);
 window.addEventListener('mouseup', endJoystick);
@@ -310,7 +327,7 @@ function sendDrawSegment(from, to, force = false) {
   lastDrawSentAt = now;
   lastRemote = {...to};
 }
-function startDraw(ev) { ev.preventDefault(); drawing = true; last = point(ev); lastRemote = {...last}; }
+function startDraw(ev) { if (cameraActive) return; ev.preventDefault(); drawing = true; last = point(ev); lastRemote = {...last}; }
 function moveDraw(ev) {
   if (!drawing) return;
   ev.preventDefault();
@@ -397,4 +414,125 @@ function playPcm(buffer) {
   if (nextAudioTime < audioCtx.currentTime || nextAudioTime - audioCtx.currentTime > 0.3) nextAudioTime = audioCtx.currentTime + 0.04;
   source.start(nextAudioTime);
   nextAudioTime += audioBuffer.duration;
+}
+
+
+// 🎛️ Обработчик кнопки
+// 🎛️ Обработчик кнопки стриминга камеры
+$('localCameraBtn').onclick = toggleCameraStream;
+
+async function toggleCameraStream() {
+    if (cameraStreamActive) {
+        stopCameraStream();
+        return;
+    }
+
+    try {
+        // Запрашиваем доступ к камере
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: STREAM_WIDTH },
+                height: { ideal: STREAM_HEIGHT },
+                frameRate: { ideal: STREAM_FPS }
+            } 
+        });
+        
+        // Видео-элемент для захвата кадров (скрытый)
+        localVideoEl = document.createElement('video');
+        localVideoEl.srcObject = stream;
+        localVideoEl.autoplay = true;
+        localVideoEl.muted = true;
+        localVideoEl.style.display = 'none';
+        document.body.appendChild(localVideoEl);
+
+        await new Promise(resolve => localVideoEl.onloadedmetadata = resolve);
+        await localVideoEl.play();
+
+        // Canvas для конвертации кадра в JPEG
+        captureCanvas = document.createElement('canvas');
+        captureCanvas.width = STREAM_WIDTH;
+        captureCanvas.height = STREAM_HEIGHT;
+        captureCtx = captureCanvas.getContext('2d');
+
+        cameraStreamActive = true;
+        $('localCameraBtn').textContent = '🛑 Остановить стрим';
+        $('localCameraBtn').classList.add('active');
+        drawing = false; // Блокируем рисование
+
+        startCameraStreaming();
+
+    } catch (err) {
+        console.error('Camera stream error:', err);
+        alert('Не удалось получить доступ к камере: ' + (err.message || err));
+    }
+}
+
+function startCameraStreaming() {
+    const frameInterval = 1000 / STREAM_FPS;
+    
+    cameraStreamInterval = setInterval(() => {
+        if (!cameraStreamActive || !ws || ws.readyState !== WebSocket.OPEN) return;
+        
+        // Рисуем текущий кадр на canvas
+        captureCtx.drawImage(localVideoEl, 0, 0, STREAM_WIDTH, STREAM_HEIGHT);
+        
+        // Конвертируем в JPEG и отправляем
+        captureCanvas.toBlob((blob) => {
+            if (!blob || !cameraStreamActive) return;
+            
+            blob.arrayBuffer().then(buffer => {
+                // Формируем бинарный пакет: [4 байта: 'VID\0'][4 байта: width][4 байта: height][JPEG]
+                const header = new Uint8Array(12);
+                
+                // Magic: 'VID\0' (0x56494400)
+                header[0] = 0x56; header[1] = 0x49; header[2] = 0x44; header[3] = 0x00;
+                // Width (little-endian)
+                header[4] = STREAM_WIDTH & 0xFF;
+                header[5] = (STREAM_WIDTH >> 8) & 0xFF;
+                header[6] = (STREAM_WIDTH >> 16) & 0xFF;
+                header[7] = (STREAM_WIDTH >> 24) & 0xFF;
+                // Height (little-endian)
+                header[8] = STREAM_HEIGHT & 0xFF;
+                header[9] = (STREAM_HEIGHT >> 8) & 0xFF;
+                header[10] = (STREAM_HEIGHT >> 16) & 0xFF;
+                header[11] = (STREAM_HEIGHT >> 24) & 0xFF;
+                
+                // Объединяем заголовок и JPEG-данные
+                const uint8 = new Uint8Array(buffer);
+                const packet = new Uint8Array(12 + uint8.length);
+                packet.set(header, 0);
+                packet.set(uint8, 12);
+                
+                ws.send(packet.buffer);
+            });
+        }, 'image/jpeg', 0.75); // quality 0.75
+        
+    }, frameInterval);
+}
+
+function stopCameraStream() {
+    cameraStreamActive = false;
+    
+    if (cameraStreamInterval) {
+        clearInterval(cameraStreamInterval);
+        cameraStreamInterval = null;
+    }
+    
+    if (localVideoEl && localVideoEl.srcObject) {
+        localVideoEl.srcObject.getTracks().forEach(track => track.stop());
+        localVideoEl.remove();
+        localVideoEl = null;
+    }
+    
+    if (captureCanvas) {
+        captureCanvas.remove();
+        captureCanvas = null;
+        captureCtx = null;
+    }
+    
+    $('localCameraBtn').textContent = '📷 Стрим камеры';
+    $('localCameraBtn').classList.remove('active');
+    
+    // Возвращаем холст в исходное состояние
+    applyPaintBackground(false);
 }

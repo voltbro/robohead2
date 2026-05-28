@@ -137,6 +137,57 @@ class RoboheadWebNode(Node):
             ],
         }
 
+    def handle_video_frame(self, data: bytes) -> None:
+        """Обрабатывает бинарный пакет с видео-фреймом от клиента"""
+        try:
+            import base64
+            import numpy as np
+            import cv2
+            
+            # Парсим заголовок: [4 байта magic][4 байта width][4 байта height]
+            if len(data) < 12:
+                return
+                
+            magic = data[0:4]
+            if magic != b'VID\x00':  # Проверка сигнатуры
+                return
+            
+            width = int.from_bytes(data[4:8], 'little')
+            height = int.from_bytes(data[8:12], 'little')
+            jpeg_data = data[12:]
+            
+            if not jpeg_data:
+                return
+            
+            # Декодируем JPEG в numpy array (BGR)
+            frame = cv2.imdecode(np.frombuffer(jpeg_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if frame is None:
+                return
+            
+            # Ресайзим под размер дисплея робота, если нужно
+            if frame.shape[1] != self.canvas_width or frame.shape[0] != self.canvas_height:
+                frame = cv2.resize(frame, (self.canvas_width, self.canvas_height), interpolation=cv2.INTER_LINEAR)
+            
+            # Конвертируем BGR → RGB для ROS encoding 'rgb8'
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Создаём ROS Image сообщение
+            msg = Image()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'client_camera_stream'
+            msg.height = self.canvas_height
+            msg.width = self.canvas_width
+            msg.encoding = 'rgb8'
+            msg.is_bigendian = 0
+            msg.step = self.canvas_width * 3
+            msg.data = frame_rgb.tobytes()
+            
+            # Публикуем в тот же топик, что и медиа-плеер
+            self.pub_display.publish(msg)
+            
+        except Exception as e:
+            self.get_logger().warning(f'video_frame decode error: {e}')
+
     def audio_chunk(self, last_seq: int) -> tuple[int, bytes]:
         with self.lock:
             seq = self.audio_seq
@@ -420,6 +471,9 @@ class WebApp:
                 if msg.type == WSMsgType.TEXT:
                     # Передаем ws в обработчик, чтобы знать, кого исключить при рассылке
                     await self.handle_ws_message(msg.json(), sender_ws=ws)
+                elif msg.type == WSMsgType.BINARY:
+                    # Передаём сырые байты в обработчик
+                    self.node.handle_video_frame(msg.data)
         finally:
             sender.cancel()
             self.node.ws_clients.discard(ws)  # Удаляем при отключении
@@ -627,9 +681,53 @@ def main() -> None:
     async def start() -> None:
         runner = web.AppRunner(WebApp(node).app)
         await runner.setup()
-        site = web.TCPSite(runner, host, port)
-        await site.start()
-        node.get_logger().info(f'robohead_web is running at http://{host}:{port}')
+        runner_redirect = None
+
+        import ssl
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        use_ssl = False
+        
+        try:
+            ssl_context.load_cert_chain('ssl/cert.pem', 'ssl/key.pem')
+            use_ssl = True
+            node.get_logger().info(' SSL certificates loaded. HTTPS enabled.')
+        except FileNotFoundError:
+            node.get_logger().warning('⚠️ cert.pem or key.pem not found. Running HTTP only.')
+
+        https_port = port
+        site_https = web.TCPSite(runner, host, https_port, ssl_context=ssl_context if use_ssl else None)
+        await site_https.start()
+        
+        protocol = 'https' if use_ssl else 'http'
+        node.get_logger().info(f' Main server running at {protocol}://{host}:{https_port}')
+
+        # 🔄 Если HTTPS активен, поднимаем HTTP-редирект
+        if use_ssl:
+            redirect_app = web.Application()
+            
+            # 🟢 Используем явную регистрацию вместо декоратора
+            async def redirect_to_https(request):
+                client_host = request.headers.get('Host', f'{host}:{https_port}').split(':')[0]
+                target = f"https://{client_host}:{https_port}{request.path_qs}"
+                return web.HTTPFound(target)
+            
+            # Регистрируем основные методы
+            redirect_app.router.add_get('/{path:.*}', redirect_to_https)
+            redirect_app.router.add_post('/{path:.*}', redirect_to_https)
+            redirect_app.router.add_put('/{path:.*}', redirect_to_https)
+            redirect_app.router.add_delete('/{path:.*}', redirect_to_https)
+            # redirect_app.router.add_head('/{path:.*}', redirect_to_https)
+            redirect_app.router.add_options('/{path:.*}', redirect_to_https)
+            redirect_app.router.add_patch('/{path:.*}', redirect_to_https)
+
+            runner_redirect = web.AppRunner(redirect_app)
+            await runner_redirect.setup()
+            
+            http_port = port + 1
+            site_http = web.TCPSite(runner_redirect, host, http_port)
+            await site_http.start()
+            node.get_logger().info(f'🔀 HTTP redirect server running at http://{host}:{http_port} -> {protocol}://{host}:{https_port}')
+
         stop = asyncio.Event()
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
@@ -637,7 +735,10 @@ def main() -> None:
             except NotImplementedError:
                 pass
         await stop.wait()
+
         await runner.cleanup()
+        if runner_redirect:
+            await runner_redirect.cleanup()
 
     try:
         loop.run_until_complete(start())
