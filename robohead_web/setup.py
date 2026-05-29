@@ -10,7 +10,7 @@ static_files = [str(p) for p in static_dir.rglob('*') if p.is_file()] if static_
 
 setup(
     name=package_name,
-    version='0.1.0',
+    version='0.2.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
@@ -22,7 +22,7 @@ setup(
     zip_safe=True,
     maintainer='kolezo-pi',
     maintainer_email='kolesnikovpi2005@mail.ru',
-    description='Web interface for Robohead ROS2 controls',
+    description='FastAPI web interface for Robohead ROS2 controls',
     license='TODO',
     tests_require=['pytest'],
     entry_points={'console_scripts': ['server = robohead_web.server:main']},

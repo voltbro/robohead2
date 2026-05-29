@@ -52,3 +52,32 @@ bool is_audio(const std::string& path) {
          has_extension(path, ".wma")  || has_extension(path, ".opus")  || 
          has_extension(path, ".aiff") || has_extension(path, ".aif");
 }
+
+bool is_url(const std::string& path) {
+  if (path.size() < 4) return false;  // мин. "a://"
+  
+  // Вспомогательная лямбда для регистронезависимого сравнения подстроки
+  auto starts_with_ignore_case = [](const std::string& str, const char* prefix, size_t prefix_len) -> bool {
+    if (str.size() < prefix_len) return false;
+    for (size_t i = 0; i < prefix_len; ++i) {
+      if (std::tolower(static_cast<unsigned char>(str[i])) != 
+          std::tolower(static_cast<unsigned char>(prefix[i]))) {
+        return false;
+      }
+    }
+    return true;
+  };
+  
+  // Проверка по списку протоколов
+  static const struct { const char* proto; size_t len; } protocols[] = {
+    {"http://", 7}, {"https://", 8}, {"ftp://", 6}, {"ftps://", 7},
+    {"ws://", 5}, {"wss://", 6}, {"rtsp://", 7}, {"rtmp://", 7}, {"file://", 7}
+  };
+  
+  for (const auto& p : protocols) {
+    if (starts_with_ignore_case(path, p.proto, p.len) && path.size() > p.len) {
+      return true;
+    }
+  }
+  return false;
+}

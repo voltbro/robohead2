@@ -2,8 +2,8 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>robohead_web</name>
-  <version>0.1.0</version>
-  <description>Web interface for Robohead ROS2 controls</description>
+  <version>0.2.0</version>
+  <description>FastAPI web interface for Robohead ROS2 controls</description>
   <maintainer email="kolesnikovpi2005@mail.ru">kolezo-pi</maintainer>
   <license>TODO: License declaration</license>
 
@@ -12,7 +12,11 @@
   <depend>std_msgs</depend>
   <depend>robohead_interfaces</depend>
 
-  <exec_depend>python3-aiohttp</exec_depend>
+  <exec_depend>python3-fastapi</exec_depend>
+  <exec_depend>python3-uvicorn</exec_depend>
+  <exec_depend>python3-multipart</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

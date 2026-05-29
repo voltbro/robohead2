@@ -4,13 +4,10 @@ const paint = $('paint');
 const paintCtx = paint.getContext('2d');
 const joystick = $('joystick');
 const stick = $('stick');
-const mediaUpload = $('mediaUpload');
-const uploadMediaBtn = $('uploadMedia');
-const mediaLoop = $('mediaLoop');
-const uploadProgress = $('uploadProgress');
 
 let ws;
 let audioWs;
+let audioInWs;
 let audioCtx;
 let nextAudioTime = 0;
 let audioSampleRate = 16000;
@@ -23,15 +20,8 @@ let joystickActive = false;
 let lastNeckSentAt = 0;
 let neckTimer = null;
 let pendingNeck = null;
-let isSyncing = false;
-let pendingSync = null;  // Очередь для отложенной синхронизации
+let syncing = false;
 
-// 📷 Переменные для локальной камеры
-let localStream = null;
-let videoEl = null;
-let cameraActive = false;
-let cameraAnimFrame = null;
-// 📹 Стриминг камеры на сервер
 let cameraStreamActive = false;
 let cameraStreamInterval = null;
 let localVideoEl = null;
@@ -41,180 +31,73 @@ const STREAM_WIDTH = 640;
 const STREAM_HEIGHT = 480;
 const STREAM_FPS = 15;
 
-// 🎤 Стриминг голоса на робота
 let voiceStreamActive = false;
-let voiceStreamInterval = null;
 let micStream = null;
-let audioProcessor = null;
-let audioContext = null;
-const VOICE_SAMPLE_RATE = 16000;
-const VOICE_CHUNK_MS = 20;  // 20 мс = 320 сэмплов @ 16kHz
+let voiceProcessor = null;
+let voiceContext = null;
 
 function applyPaintBackground(send = true) {
   const color = $('background').value;
   paintCtx.fillStyle = color;
   paintCtx.fillRect(0, 0, paint.width, paint.height);
   lastRemote = null;
-  if (send) ws?.send(JSON.stringify({type: 'clear', color}));
+  if (send) wsSend({type: 'clear', color});
 }
 applyPaintBackground(false);
 
-
-uploadMediaBtn.onclick = async () => {
-  const file = mediaUpload.files[0];
-  if (!file) {
-    alert('Выберите файл для загрузки');
-    return;
-  }
-  
-  // Валидация размера (макс 100 МБ)
-  if (file.size > 100 * 1024 * 1024) {
-    alert('Файл слишком большой (макс 100 МБ)');
-    return;
-  }
-  
-  const loop = mediaLoop.checked;
-  uploadProgress.textContent = `Загрузка ${file.name}...`;
-  uploadMediaBtn.disabled = true;
-  
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('loop', loop ? 'true' : 'false');
-    
-    const res = await fetch('/api/media/upload', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const result = await res.json();
-    
-    if (result.ok) {
-      uploadProgress.textContent = `✅ ${file.name} загружен и воспроизводится`;
-      // Обновляем поля путей для отображения
-      $('videoPath').value = result.path;
-      $('audioPath').value = result.path; // Для видео со звуком — одинаковый путь
-    } else {
-      uploadProgress.textContent = `❌ Ошибка: ${result.error}`;
-    }
-  } catch (e) {
-    uploadProgress.textContent = `❌ Ошибка сети: ${e.message}`;
-    console.error('Upload error:', e);
-  } finally {
-    uploadMediaBtn.disabled = false;
-    // Очищаем инпут, чтобы можно было загрузить тот же файл повторно
-    mediaUpload.value = '';
-    setTimeout(() => { uploadProgress.textContent = ''; }, 3000);
-  }
-};
-
 function connect() {
-  if (ws) {
-    ws.onopen = null;
-    ws.onclose = null;
-    ws.onerror = null;
-    ws.onmessage = null;
-    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-      ws.close();  // принудительное закрытие
-    }
-  }
-
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) ws.close();
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  ws.binaryType = 'arraybuffer';
   ws.onopen = () => connection.textContent = 'Подключено';
-  ws.onclose = () => { connection.textContent = 'Отключено'; setTimeout(connect, 500); };
-  ws.onerror = () => connection.textContent = 'Ошибка';
+  ws.onclose = () => { connection.textContent = 'Отключено'; setTimeout(connect, 700); };
+  ws.onerror = () => connection.textContent = 'Ошибка подключения';
   ws.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-
-      if (msg.type === 'status') {
-        renderStatus(msg.data);
-      } 
-      
-      else if (msg.type === 'canvas_history') {
-        // При подключении получаем полную историю
-        replayCanvasHistory(msg.commands);
-      } 
-      
-      else if (msg.type === 'draw') {
-        // 🟢 Пришло рисование от ДРУГОГО пользователя
-        // Рисуем линию локально, но НЕ отправляем её обратно на сервер
-        paintCtx.strokeStyle = msg.color;
-        paintCtx.lineWidth = msg.size * 2;
-        paintCtx.lineCap = 'round';
-        paintCtx.beginPath();
-        paintCtx.moveTo(msg.x0, msg.y0);
-        paintCtx.lineTo(msg.x1, msg.y1);
-        paintCtx.stroke();
-        
-        // Обновляем lastRemote, чтобы если мы начнем рисовать, линия продолжилась верно
-        lastRemote = {x: msg.x1, y: msg.y1};
-      } 
-      
-      else if (msg.type === 'clear') {
-        // 🟢 Пришла очистка от ДРУГОГО пользователя
-        applyPaintBackground(false); // false = не отправлять ответ
-        $('background').value = msg.color;
-      }
-
-    } catch (e) {
-      console.error('WS parse error:', e);
-    }
+    if (typeof ev.data !== 'string') return;
+    const msg = JSON.parse(ev.data);
+    if (msg.type === 'status') renderStatus(msg.data);
+    if (msg.type === 'canvas_history') replayCanvasHistory(msg.commands || []);
+    if (msg.type === 'draw') drawLocalLine(msg);
+    if (msg.type === 'clear') applyRemoteClear(msg.color);
   };
 }
 connect();
 
+function wsSend(data) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+}
+
 function renderStatus(s) {
   $('battery').textContent = s.battery ? `Батарея: ${s.battery.voltage}V ${s.battery.current}A` : 'Батарея: --';
-  $('doa').textContent = s.doa ? `DoA: ${s.doa} градусов` : 'DoA: --';
+  $('doa').textContent = s.doa === null ? 'DoA: --' : `DoA: ${s.doa} градусов`
 }
+
+function drawLocalLine(cmd) {
+  paintCtx.strokeStyle = cmd.color;
+  paintCtx.lineWidth = cmd.size * 2;
+  paintCtx.lineCap = 'round';
+  paintCtx.beginPath();
+  paintCtx.moveTo(cmd.x0, cmd.y0);
+  paintCtx.lineTo(cmd.x1, cmd.y1);
+  paintCtx.stroke();
+}
+
+function applyRemoteClear(color) {
+  if (color) $('background').value = color;
+  applyPaintBackground(false);
+}
+
 function replayCanvasHistory(commands) {
-  if (isSyncing) return;  // Защита от рекурсии
-  isSyncing = true;
-  
+  if (drawing || syncing) return;
+  syncing = true;
   try {
-    // Сохраняем текущее состояние, если что-то рисуем
-    let tempImageData = null;
-    if (drawing && last) {
-      tempImageData = paintCtx.getImageData(0, 0, paint.width, paint.height);
-    }
-    
-    // Очищаем и перерисовываем историю
     paintCtx.clearRect(0, 0, paint.width, paint.height);
-    
     for (const cmd of commands) {
-      if (cmd.type === 'clear') {
-        paintCtx.fillStyle = cmd.color;
-        paintCtx.fillRect(0, 0, paint.width, paint.height);
-        $('background').value = cmd.color;
-      } else if (cmd.type === 'draw') {
-        paintCtx.strokeStyle = cmd.color;
-        paintCtx.lineWidth = cmd.size * 2;
-        paintCtx.lineCap = 'round';
-        paintCtx.beginPath();
-        paintCtx.moveTo(cmd.x0, cmd.y0);
-        paintCtx.lineTo(cmd.x1, cmd.y1);
-        paintCtx.stroke();
-      }
+      if (cmd.type === 'clear') applyRemoteClear(cmd.color);
+      if (cmd.type === 'draw') drawLocalLine(cmd);
     }
-    
-    // Восстанавливаем текущую линию, если она была
-    if (tempImageData) {
-      paintCtx.putImageData(tempImageData, 0, 0);
-    }
-    
-    // Сбрасываем lastRemote, но НЕ drawing!
-    lastRemote = null;
-    
   } finally {
-    isSyncing = false;
-    
-    // 🟢 Применяем отложенную синхронизацию, если она пришла
-    if (pendingSync && !drawing) {
-      const sync = pendingSync;
-      pendingSync = null;
-      replayCanvasHistory(sync);
-    }
+    syncing = false;
   }
 }
 
@@ -237,9 +120,8 @@ function setStick(horizontal, vertical) {
 }
 
 function sendNeckNow(vertical, horizontal) {
-  const payload = {type: 'neck', vertical, horizontal, duration: 0.0};
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
-  else post('/api/neck', payload);
+  const payload = {type: 'neck', vertical, horizontal, duration: 0.04};
+  wsSend(payload);
   lastNeckSentAt = performance.now();
 }
 
@@ -247,7 +129,7 @@ function sendNeck(vertical, horizontal, immediate = false) {
   setStick(horizontal, vertical);
   pendingNeck = {vertical, horizontal};
   const elapsed = performance.now() - lastNeckSentAt;
-  if (immediate || elapsed > 10) {
+  if (immediate || elapsed > 25) {
     clearTimeout(neckTimer);
     sendNeckNow(vertical, horizontal);
     return;
@@ -255,7 +137,7 @@ function sendNeck(vertical, horizontal, immediate = false) {
   clearTimeout(neckTimer);
   neckTimer = setTimeout(() => {
     if (pendingNeck) sendNeckNow(pendingNeck.vertical, pendingNeck.horizontal);
-  }, 10 - elapsed);
+  }, 25 - elapsed);
 }
 
 function joystickPoint(ev) {
@@ -269,7 +151,6 @@ function joystickPoint(ev) {
   if (len > 1) { x /= len; y /= len; }
   return {horizontal: Math.round(x * 30), vertical: Math.round(-y * 30)};
 }
-
 function startJoystick(ev) { joystickActive = true; moveJoystick(ev); }
 function moveJoystick(ev) {
   if (!joystickActive) return;
@@ -277,9 +158,7 @@ function moveJoystick(ev) {
   const p = joystickPoint(ev);
   sendNeck(p.vertical, p.horizontal);
 }
-// function endJoystick() { if (!joystickActive) return; joystickActive = false; sendNeck(0, 0, true); }
-function endJoystick() { if (!joystickActive) return; joystickActive = false; }
-
+function endJoystick() { joystickActive = false; }
 joystick.addEventListener('mousedown', startJoystick);
 window.addEventListener('mousemove', moveJoystick);
 window.addEventListener('mouseup', endJoystick);
@@ -289,7 +168,7 @@ window.addEventListener('touchend', endJoystick);
 setStick(0, 0);
 
 function sendEars() {
-  post('/api/ears', {left: +$('earL').value, right: +$('earR').value, duration: 0.0});
+  debounceCommand(() => post('/api/ears', {left: +$('earL').value, right: +$('earR').value, duration: 0.0}), 50);
 }
 $('earL').oninput = sendEars;
 $('earR').oninput = sendEars;
@@ -305,24 +184,37 @@ $('volume').onchange = () => post('/api/volume', {value: +$('volume').value});
 $('setLed').onclick = () => post('/api/led/color', {color: $('ledColor').value});
 $('brightness').onchange = () => post('/api/led/brightness', {value: +$('brightness').value});
 document.querySelectorAll('[data-mode]').forEach((b) => b.onclick = () => post('/api/led/mode', {mode: +b.dataset.mode}));
-// $('playMedia').onclick = () => post('/api/media', {video_path: $('videoPath').value, audio_path: $('audioPath').value, loop: false});
-
-$('playMedia').onclick = () => {
-  const videoPath = $('videoPath').value;
-  const audioPath = $('audioPath').value;
-  const loop = mediaLoop.checked; // Берём значение из чекбокса
-  
-  post('/api/media', {
-    video_path: videoPath,
-    audio_path: audioPath,
-    loop: loop
-  });
-};
-
+$('playMedia').onclick = () => post('/api/media', {video_path: $('videoPath').value, audio_path: $('audioPath').value, loop: $('mediaLoop').checked});
 $('stopMedia').onclick = () => post('/api/media', {video_path: '__STOP__', audio_path: '__STOP__', loop: false});
 $('clearPaint').onclick = () => applyPaintBackground(true);
 $('background').onchange = () => applyPaintBackground(true);
 $('listenAudio').onclick = toggleAudio;
+$('localCameraBtn').onclick = toggleCameraStream;
+$('voiceStreamBtn').onclick = toggleVoiceStream;
+
+$('uploadMedia').onclick = async () => {
+  const file = $('mediaUpload').files[0];
+  if (!file) return alert('Ошибка загрузки файла');
+  if (file.size > 100 * 1024 * 1024) return alert('Превышен максимальный размер файла');
+  const progress = $('uploadProgress');
+  progress.textContent = `Загрузка ${file.name}...`;
+  $('uploadMedia').disabled = true;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('loop', $('mediaLoop').checked ? 'true' : 'false');
+    const res = await fetch('/api/media/upload', {method: 'POST', body: form});
+    const result = await res.json();
+    progress.textContent = result.ok ? `${file.name} загружен` : `Ошибка: ${result.error || result.detail || 'unknown'}`;
+    if (result.path) { $('videoPath').value = result.path; $('audioPath').value = result.path; }
+  } catch (e) {
+    progress.textContent = `Ошибка файла: ${e.message}`;
+  } finally {
+    $('uploadMedia').disabled = false;
+    $('mediaUpload').value = '';
+    setTimeout(() => { progress.textContent = ''; }, 3000);
+  }
+};
 
 function point(ev) {
   const rect = paint.getBoundingClientRect();
@@ -332,11 +224,17 @@ function point(ev) {
 function sendDrawSegment(from, to, force = false) {
   const now = performance.now();
   if (!force && now - lastDrawSentAt < 45) return;
-  ws?.send(JSON.stringify({type: 'draw', x0: from.x, y0: from.y, x1: to.x, y1: to.y, color: $('paintColor').value, size: +$('brush').value}));
+  wsSend({type: 'draw', x0: from.x, y0: from.y, x1: to.x, y1: to.y, color: $('paintColor').value, size: +$('brush').value, flush: force});
   lastDrawSentAt = now;
   lastRemote = {...to};
 }
-function startDraw(ev) { if (cameraActive) return; ev.preventDefault(); drawing = true; last = point(ev); lastRemote = {...last}; }
+function startDraw(ev) {
+  if (cameraStreamActive) return;
+  ev.preventDefault();
+  drawing = true;
+  last = point(ev);
+  lastRemote = {...last};
+}
 function moveDraw(ev) {
   if (!drawing) return;
   ev.preventDefault();
@@ -353,23 +251,12 @@ function moveDraw(ev) {
   sendDrawSegment(lastRemote || last, p, false);
   last = p;
 }
-
 function endDraw() {
-  if (drawing && lastRemote && last) {
-    sendDrawSegment(lastRemote, last, true);
-  }
+  if (drawing && lastRemote && last) sendDrawSegment(lastRemote, last, true);
   drawing = false;
   last = null;
   lastRemote = null;
-  
-  // 🟢 Если во время рисования пришла синхронизация — применим её сейчас
-  if (pendingSync) {
-    const sync = pendingSync;
-    pendingSync = null;
-    replayCanvasHistory(sync);
-  }
 }
-
 paint.addEventListener('mousedown', startDraw);
 paint.addEventListener('mousemove', moveDraw);
 window.addEventListener('mouseup', endDraw);
@@ -380,9 +267,6 @@ window.addEventListener('touchend', endDraw);
 async function toggleAudio() {
   if (audioWs) {
     audioWs.close();
-    audioWs = null;
-    $('listenAudio').classList.remove('active');
-    $('listenAudio').textContent = 'Listen';
     return;
   }
   audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
@@ -390,8 +274,8 @@ async function toggleAudio() {
   nextAudioTime = audioCtx.currentTime + 0.05;
   audioWs = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/audio_ws`);
   audioWs.binaryType = 'arraybuffer';
-  audioWs.onopen = () => { $('listenAudio').classList.add('active'); $('listenAudio').textContent = 'Listening'; };
-  audioWs.onclose = () => { audioWs = null; $('listenAudio').classList.remove('active'); $('listenAudio').textContent = 'Listen'; };
+  audioWs.onopen = () => { $('listenAudio').classList.add('active'); $('listenAudio').textContent = 'Трансляция аудио'; };
+  audioWs.onclose = () => { audioWs = null; $('listenAudio').classList.remove('active'); $('listenAudio').textContent = 'Отключено'; };
   audioWs.onmessage = (ev) => {
     if (typeof ev.data === 'string') {
       const cfg = JSON.parse(ev.data);
@@ -425,228 +309,117 @@ function playPcm(buffer) {
   nextAudioTime += audioBuffer.duration;
 }
 
-
-// 🎛️ Обработчик кнопки
-// 🎛️ Обработчик кнопки стриминга камеры
-$('localCameraBtn').onclick = toggleCameraStream;
-
 async function toggleCameraStream() {
-    if (cameraStreamActive) {
-        stopCameraStream();
-        return;
-    }
-
-    try {
-        // Запрашиваем доступ к камере
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: STREAM_WIDTH },
-                height: { ideal: STREAM_HEIGHT },
-                frameRate: { ideal: STREAM_FPS }
-            } 
-        });
-        
-        // Видео-элемент для захвата кадров (скрытый)
-        localVideoEl = document.createElement('video');
-        localVideoEl.srcObject = stream;
-        localVideoEl.autoplay = true;
-        localVideoEl.muted = true;
-        localVideoEl.style.display = 'none';
-        document.body.appendChild(localVideoEl);
-
-        await new Promise(resolve => localVideoEl.onloadedmetadata = resolve);
-        await localVideoEl.play();
-
-        // Canvas для конвертации кадра в JPEG
-        captureCanvas = document.createElement('canvas');
-        captureCanvas.width = STREAM_WIDTH;
-        captureCanvas.height = STREAM_HEIGHT;
-        captureCtx = captureCanvas.getContext('2d');
-
-        cameraStreamActive = true;
-        $('localCameraBtn').textContent = '🛑 Остановить стрим';
-        $('localCameraBtn').classList.add('active');
-        drawing = false; // Блокируем рисование
-
-        startCameraStreaming();
-
-    } catch (err) {
-        console.error('Camera stream error:', err);
-        alert('Не удалось получить доступ к камере: ' + (err.message || err));
-    }
+  if (cameraStreamActive) return stopCameraStream();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video: {width: {ideal: STREAM_WIDTH}, height: {ideal: STREAM_HEIGHT}, frameRate: {ideal: STREAM_FPS}}});
+    localVideoEl = document.createElement('video');
+    localVideoEl.srcObject = stream;
+    localVideoEl.autoplay = true;
+    localVideoEl.muted = true;
+    localVideoEl.playsInline = true;
+    await localVideoEl.play();
+    captureCanvas = document.createElement('canvas');
+    captureCanvas.width = STREAM_WIDTH;
+    captureCanvas.height = STREAM_HEIGHT;
+    captureCtx = captureCanvas.getContext('2d');
+    cameraStreamActive = true;
+    $('localCameraBtn').textContent = 'Включить трансляцию своей камеры';
+    $('localCameraBtn').classList.add('active');
+    cameraStreamInterval = setInterval(sendCameraFrame, 1000 / STREAM_FPS);
+  } catch (err) {
+    alert('Ошибка трансляции камеры: ' + (err.message || err));
+  }
 }
 
-function startCameraStreaming() {
-    const frameInterval = 1000 / STREAM_FPS;
-    
-    cameraStreamInterval = setInterval(() => {
-        if (!cameraStreamActive || !ws || ws.readyState !== WebSocket.OPEN) return;
-        
-        // Рисуем текущий кадр на canvas
-        captureCtx.drawImage(localVideoEl, 0, 0, STREAM_WIDTH, STREAM_HEIGHT);
-        
-        // Конвертируем в JPEG и отправляем
-        captureCanvas.toBlob((blob) => {
-            if (!blob || !cameraStreamActive) return;
-            
-            blob.arrayBuffer().then(buffer => {
-                // Формируем бинарный пакет: [4 байта: 'VID\0'][4 байта: width][4 байта: height][JPEG]
-                const header = new Uint8Array(12);
-                
-                // Magic: 'VID\0' (0x56494400)
-                header[0] = 0x56; header[1] = 0x49; header[2] = 0x44; header[3] = 0x00;
-                // Width (little-endian)
-                header[4] = STREAM_WIDTH & 0xFF;
-                header[5] = (STREAM_WIDTH >> 8) & 0xFF;
-                header[6] = (STREAM_WIDTH >> 16) & 0xFF;
-                header[7] = (STREAM_WIDTH >> 24) & 0xFF;
-                // Height (little-endian)
-                header[8] = STREAM_HEIGHT & 0xFF;
-                header[9] = (STREAM_HEIGHT >> 8) & 0xFF;
-                header[10] = (STREAM_HEIGHT >> 16) & 0xFF;
-                header[11] = (STREAM_HEIGHT >> 24) & 0xFF;
-                
-                // Объединяем заголовок и JPEG-данные
-                const uint8 = new Uint8Array(buffer);
-                const packet = new Uint8Array(12 + uint8.length);
-                packet.set(header, 0);
-                packet.set(uint8, 12);
-                
-                ws.send(packet.buffer);
-            });
-        }, 'image/jpeg', 0.75); // quality 0.75
-        
-    }, frameInterval);
+function sendCameraFrame() {
+  if (!cameraStreamActive || !ws || ws.readyState !== WebSocket.OPEN) return;
+  captureCtx.drawImage(localVideoEl, 0, 0, STREAM_WIDTH, STREAM_HEIGHT);
+  captureCanvas.toBlob(async (blob) => {
+    if (!blob || !cameraStreamActive) return;
+    const jpeg = new Uint8Array(await blob.arrayBuffer());
+    const packet = new Uint8Array(12 + jpeg.length);
+    packet[0] = 0x56; packet[1] = 0x49; packet[2] = 0x44; packet[3] = 0x00;
+    writeUint32(packet, 4, STREAM_WIDTH);
+    writeUint32(packet, 8, STREAM_HEIGHT);
+    packet.set(jpeg, 12);
+    ws.send(packet.buffer);
+  }, 'image/jpeg', 0.72);
+}
+
+function writeUint32(buf, offset, value) {
+  buf[offset] = value & 0xff;
+  buf[offset + 1] = (value >> 8) & 0xff;
+  buf[offset + 2] = (value >> 16) & 0xff;
+  buf[offset + 3] = (value >> 24) & 0xff;
 }
 
 function stopCameraStream() {
-    cameraStreamActive = false;
-    
-    if (cameraStreamInterval) {
-        clearInterval(cameraStreamInterval);
-        cameraStreamInterval = null;
-    }
-    
-    if (localVideoEl && localVideoEl.srcObject) {
-        localVideoEl.srcObject.getTracks().forEach(track => track.stop());
-        localVideoEl.remove();
-        localVideoEl = null;
-    }
-    
-    if (captureCanvas) {
-        captureCanvas.remove();
-        captureCanvas = null;
-        captureCtx = null;
-    }
-    
-    $('localCameraBtn').textContent = '📷 Стрим камеры';
-    $('localCameraBtn').classList.remove('active');
-    
-    // Возвращаем холст в исходное состояние
-    applyPaintBackground(false);
+  cameraStreamActive = false;
+  clearInterval(cameraStreamInterval);
+  cameraStreamInterval = null;
+  if (localVideoEl?.srcObject) localVideoEl.srcObject.getTracks().forEach((track) => track.stop());
+  localVideoEl = null;
+  captureCanvas = null;
+  captureCtx = null;
+  $('localCameraBtn').textContent = 'Трансляция остановлена';
+  $('localCameraBtn').classList.remove('active');
 }
 
-
-// 🎛️ Обработчик кнопки трансляции голоса
-$('voiceStreamBtn').onclick = toggleVoiceStream;
-
 async function toggleVoiceStream() {
-    if (voiceStreamActive) {
-        stopVoiceStream();
-        return;
-    }
+  if (voiceStreamActive) return stopVoiceStream();
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true, channelCount: 1}});
+    voiceContext = voiceContext || new (window.AudioContext || window.webkitAudioContext)();
+    await voiceContext.resume();
+    audioInWs = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/audio_in_ws`);
+    audioInWs.binaryType = 'arraybuffer';
+    await new Promise((resolve, reject) => {
+      audioInWs.onopen = resolve;
+      audioInWs.onerror = reject;
+    });
+    const source = voiceContext.createMediaStreamSource(micStream);
+    voiceProcessor = voiceContext.createScriptProcessor(1024, 1, 1);
+    voiceProcessor.onaudioprocess = (e) => {
+      if (!voiceStreamActive || !audioInWs || audioInWs.readyState !== WebSocket.OPEN) return;
+      const pcm = resampleToInt16(e.inputBuffer.getChannelData(0), voiceContext.sampleRate, 16000);
+      audioInWs.send(pcm.buffer);
+    };
+    source.connect(voiceProcessor);
+    voiceProcessor.connect(voiceContext.destination);
+    voiceStreamActive = true;
+    $('voiceStreamBtn').textContent = 'Трансляция голоса';
+    $('voiceStreamBtn').classList.add('active');
+  } catch (err) {
+    alert('Ошибка трансляции голоса: ' + (err.message || err));
+    stopVoiceStream();
+  }
+}
 
-    try {
-        // Запрашиваем доступ к микрофону
-        micStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: { 
-                echoCancellation: true,
-                noiseSuppression: true,
-                sampleRate: VOICE_SAMPLE_RATE,
-                channelCount: 1 
-            } 
-        });
-
-        // Инициализируем AudioContext (если ещё не создан)
-        audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-        await audioContext.resume();
-
-        // Создаём источник и процессор
-        const source = audioContext.createMediaStreamSource(micStream);
-        
-        // ScriptProcessor для захвата аудио (устаревший, но самый совместимый)
-        // 1024 буфер = ~64мс @ 16kHz, но мы отправляем чаще
-        audioProcessor = audioContext.createScriptProcessor(1024, 1, 1);
-        
-        let pendingBuffer = [];
-        
-        let lastSendTime = 0;
-        audioProcessor.onaudioprocess = (e) => {
-            if (!voiceStreamActive || !ws || ws.readyState !== WebSocket.OPEN) return;
-            
-            const rawInput = e.inputBuffer.getChannelData(0);
-            const inputRate = audioContext.sampleRate; // Обычно 44100 или 48000
-            const targetRate = 16000;
-            
-            //  Ресемплинг в 16000 Гц (линейная интерполяция)
-            let resampled;
-            if (inputRate === targetRate) {
-                resampled = rawInput;
-            } else {
-                const ratio = inputRate / targetRate;
-                const outLen = Math.floor(rawInput.length / ratio);
-                resampled = new Float32Array(outLen);
-                for (let i = 0; i < outLen; i++) {
-                    const src = i * ratio;
-                    const i0 = Math.floor(src);
-                    const i1 = Math.min(i0 + 1, rawInput.length - 1);
-                    const frac = src - i0;
-                    resampled[i] = rawInput[i0] * (1 - frac) + rawInput[i1] * frac;
-                }
-            }
-            
-            // Конвертация float32 → int16
-            const int16Data = new Int16Array(resampled.length);
-            for (let i = 0; i < resampled.length; i++) {
-                const s = Math.max(-1, Math.min(1, resampled[i]));
-                int16Data[i] = s < 0 ? s * 32768 : s * 32767;
-            }
-            
-            // Отправляем
-            ws.send(int16Data.buffer);
-        };
-
-        // Соединяем цепочку: микрофон → процессор → (никуда, нам не нужен вывод)
-        source.connect(audioProcessor);
-        audioProcessor.connect(audioContext.destination); // Нужно для работы onaudioprocess
-
-        voiceStreamActive = true;
-        $('voiceStreamBtn').textContent = '🛑 Остановить трансляцию';
-        $('voiceStreamBtn').classList.add('active');
-        
-        console.log('🎤 Voice stream started');
-
-    } catch (err) {
-        console.error('Voice stream error:', err);
-        alert('Не удалось получить доступ к микрофону: ' + (err.message || err));
-    }
+function resampleToInt16(input, inputRate, targetRate) {
+  const ratio = inputRate / targetRate;
+  const outLen = Math.max(1, Math.floor(input.length / ratio));
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const src = i * ratio;
+    const i0 = Math.floor(src);
+    const i1 = Math.min(input.length - 1, i0 + 1);
+    const frac = src - i0;
+    const sample = input[i0] * (1 - frac) + input[i1] * frac;
+    const s = Math.max(-1, Math.min(1, sample));
+    out[i] = s < 0 ? s * 32768 : s * 32767;
+  }
+  return out;
 }
 
 function stopVoiceStream() {
-    voiceStreamActive = false;
-    
-    if (audioProcessor) {
-        audioProcessor.disconnect();
-        audioProcessor = null;
-    }
-    
-    if (micStream) {
-        micStream.getTracks().forEach(track => track.stop());
-        micStream = null;
-    }
-    
-    $('voiceStreamBtn').textContent = '🎤 Трансляция голоса';
-    $('voiceStreamBtn').classList.remove('active');
-    
-    console.log('🎤 Voice stream stopped');
+  voiceStreamActive = false;
+  if (voiceProcessor) voiceProcessor.disconnect();
+  voiceProcessor = null;
+  if (micStream) micStream.getTracks().forEach((track) => track.stop());
+  micStream = null;
+  if (audioInWs) audioInWs.close();
+  audioInWs = null;
+  $('voiceStreamBtn').textContent = 'Остановлена трансляция голоса';
+  $('voiceStreamBtn').classList.remove('active');
 }

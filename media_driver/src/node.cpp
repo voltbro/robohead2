@@ -184,7 +184,7 @@ void MediaDriverNode::handle_play_media(
         if (video_path == stop_command)
         {
             video_player_->stop();
-        } else if (is_video(video_path) || is_image(video_path))
+        } else if (is_video(video_path) || is_image(video_path) || is_url(audio_path))
         {
             if (!video_player_->play(video_path, loop))
             {
@@ -206,7 +206,7 @@ void MediaDriverNode::handle_play_media(
         if (audio_path == stop_command)
         {
             audio_player_->stop();
-        } else if (is_audio(audio_path) || is_video(audio_path))
+        } else if (is_audio(audio_path) || is_video(audio_path) || is_url(audio_path))
         {
             if (!audio_player_->play(audio_path, loop))
             {
