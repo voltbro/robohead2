@@ -5,6 +5,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    """Return a ROS2 launch description that starts the web server node."""
     return LaunchDescription([
         DeclareLaunchArgument('host', default_value='0.0.0.0'),
         DeclareLaunchArgument('port', default_value='8080'),

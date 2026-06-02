@@ -41,6 +41,7 @@ class RoboheadBridge(Node):
     """
 
     def __init__(self) -> None:
+        """Initialize the ROS bridge node and set up publishers, subscribers, service clients, and the display canvas state."""
         super().__init__('robohead_web_node')
         self.declare_parameter('host', '0.0.0.0')
         self.declare_parameter('port', 8080)
@@ -95,13 +96,16 @@ class RoboheadBridge(Node):
 
     @property
     def host(self) -> str:
+        """Return the configured host address for the web server."""
         return str(self.get_parameter('host').value)
 
     @property
     def port(self) -> int:
+        """Return the configured port number for the web server."""
         return int(self.get_parameter('port').value)
 
     def _on_camera(self, msg: Image) -> None:
+        """Receive a ROS camera image, convert it to JPEG, and cache it for browser streaming."""
         frame = image_msg_to_bgr(msg)
         if frame is None:
             return
@@ -117,20 +121,24 @@ class RoboheadBridge(Node):
             self.camera_seq += 1
 
     def _on_battery(self, msg: BatteryState) -> None:
+        """Store the latest battery state from the robot."""
         with self.lock:
             self.latest_battery = msg
 
     def _on_doa(self, msg: Int32) -> None:
+        """Store the latest direction-of-arrival sensor value."""
         with self.lock:
             self.latest_doa = msg
 
     def _on_audio(self, msg: AudioData) -> None:
+        """Store the latest streamed audio packet from the robot."""
         data = np.asarray(msg.data, dtype=np.int16).tobytes()
         with self.lock:
             self.latest_audio = data
             self.audio_seq += 1
 
     def _on_touch(self, msg: TouchEvent) -> None:
+        """Track the latest touchscreen touch events from the robot."""
         with self.lock:
             if msg.state == 'up':
                 self.latest_touches.pop(int(msg.tracking_id), None)
@@ -172,6 +180,7 @@ class RoboheadBridge(Node):
             return self.audio_seq, self.latest_audio
 
     def canvas_history_snapshot(self) -> list[dict[str, Any]]:
+        """Return a copy of the current canvas command history."""
         with self.canvas_lock:
             return list(self.canvas_history)
 
@@ -229,9 +238,11 @@ class RoboheadBridge(Node):
             self._schedule_republish(self.display.second_flush_delay, second=True)
 
     def schedule_canvas_flush(self) -> None:
+        """Schedule a delayed canvas republish to ensure the final frame is shown."""
         self._schedule_republish(self.display.flush_delay, second=False)
 
     def _schedule_republish(self, delay: float, *, second: bool) -> None:
+        """Start a timer to republish the canvas after a short delay."""
         attr = '_second_flush_timer' if second else '_flush_timer'
         old = getattr(self, attr)
         if old is not None:
@@ -242,6 +253,7 @@ class RoboheadBridge(Node):
         timer.start()
 
     def _publish_canvas_once(self) -> None:
+        """Convert the current canvas into a ROS Image message and publish it."""
         msg = Image()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.height = self.display.height
@@ -254,6 +266,7 @@ class RoboheadBridge(Node):
         self.pub_display.publish(msg)
 
     def send_neck(self, vertical: Any, horizontal: Any, duration: Any = 0.06) -> bool:
+        """Send a neck movement request to the robot if the service is available."""
         if not self.neck_client.service_is_ready():
             return False
         req = Move.Request()
@@ -264,6 +277,7 @@ class RoboheadBridge(Node):
         return True
 
     def publish_client_audio(self, pcm_bytes: bytes) -> None:
+        """Publish browser microphone audio as a ROS AudioData message."""
         if not pcm_bytes:
             return
         msg = AudioData()

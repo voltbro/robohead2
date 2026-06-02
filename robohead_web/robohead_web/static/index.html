@@ -5,8 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>Панель управления Робоголовой</title>
-  <!-- <link rel="stylesheet" href="/styles.css"> -->
-  <link rel="stylesheet" href="/styles.css?v=1.0.7">
+  <link rel="stylesheet" href="/styles.css?v=1.0.11">
 </head>
 
 <body>
@@ -31,30 +30,48 @@
         <div id="stick" class="stick"></div>
       </div>
       <div class="readout"><span id="neckReadout">V 0 | H 0</span></div>
+      <button id="circleToggle">Круг</button>
     </section>
 
     <section class="panel controls">
       <div class="panel-title">Уши</div>
-      <label>Лево <input id="earL" type="range" min="-90" max="90" value="0" value="0" orient="vertical"></label>
-      <label>Право <input id="earR" type="range" min="-90" max="90" value="0" value="0" orient="vertical"></label>
-      <div class="row"><button data-ears="0,0">Центр</button><button data-ears="90,-90">Wave</button></div>
+      <div style="display: flex; gap: 50%; justify-content: center; padding: 20px;">
+
+        <label style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <span>Лево</span>
+          <input id="earL" type="range" min="-90" max="90" value="0"
+            style="writing-mode: vertical-lr; direction: rtl; height: 150px; width: 24px; cursor: pointer;">
+        </label>
+
+        <label style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <span>Право</span>
+          <input id="earR" type="range" min="-90" max="90" value="0"
+            style="writing-mode: vertical-lr; direction: rtl; height: 150px; width: 24px; cursor: pointer;">
+        </label>
+
+      </div>
+
+      <div class="row"><button data-ears="0,0">Центр</button><button data-ears="-90,-90">Назад</button>
+        <button data-ears="90,90">Вперед</button><button id="waveToggle">Волна</button>
+      </div>
     </section>
 
     <section class="panel tts">
-      <div class="panel-title">Речь</div><textarea id="ttsText" rows="3" placeholder="Text to speak"></textarea>
+      <div class="panel-title">Речь (TTS)</div><textarea id="ttsText" rows="3" placeholder="Text to speak"></textarea>
       <div class="row"><select id="voice">
           <option>eugene</option>
           <option>xenia</option>
           <option>aidar</option>
           <option>baya</option>
           <option>kseniya</option>
-        </select><button id="speak">Речь</button></div><label>Громкость <input id="volume" type="range" min="0"
+        </select><button id="speak">Озвучить</button></div><label>Громкость <input id="volume" type="range" min="0"
           max="100" value="60"></label>
     </section>
     <section class="panel led">
       <div class="panel-title">ReSpeaker LED</div>
       <div class="row"><input id="ledColor" type="color" value="#24d18b"><button id="setLed">Set</button></div>
       <label>Яркость <input id="brightness" type="range" min="0" max="100" value="80"></label>
+      <label>Режимы работы</label>
       <div class="row modes"><button data-mode="0">0</button><button data-mode="1">1</button><button
           data-mode="2">2</button><button data-mode="3">3</button><button data-mode="4">4</button><button
           data-mode="5">5</button></div>
@@ -68,41 +85,64 @@
       <input id="audioPath" placeholder="audio path">
 
       <!-- Загрузка файла -->
-      <div class="row" style="margin-top:8px">
-        <input id="mediaUpload" type="file" accept="video/*,image/*,audio/*" style="flex:1">
+      <!-- Загрузка файла -->
+      <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+        <!-- flex: 1 заставляет инпут растягиваться, заполняя строку -->
+        <input id="mediaUpload" type="file"
+          accept="video/*,image/*,audio/*,.mp3,.wav,.m4a,audio/mpeg,audio/mp3,audio/wav" style="flex: 1; min-width: 0;">
         <button id="uploadMedia">Загрузить</button>
       </div>
-      <div id="uploadProgress" style="font-size:12px;color:#888;margin:4px 0"></div>
+      <div id="uploadProgress" style="font-size: 12px; color: #888; margin: 4px 0;"></div>
+
+
 
       <!-- Опции -->
-      <label style="display:flex;align-items:center;gap:6px;margin:8px 0">
-        <input id="mediaLoop" type="checkbox">
-        <span>Зацикливание</span>
-      </label>
+
 
       <!-- Кнопки управления -->
       <div class="row">
         <button id="playMedia">Старт</button>
         <button id="stopMedia">Стоп</button>
+
+        <label style="display:flex;align-items:center;gap:6px;margin:8px 0">
+          <input id="mediaLoop" type="checkbox">
+          <span>Зацикливание</span>
+        </label>
       </div>
 
-      <button id="localCameraBtn">📷 Камера устройства</button>
-      <button id="voiceStreamBtn">🎤 Трансляция голоса</button>
+      <div class="row">
+        <button id="localCameraBtn">📷 Камера</button>
+        <button id="voiceStreamBtn">🎤 Микрофон</button>
+      </div>
+
     </section>
 
     <section class="panel draw-panel">
       <div class="panel-title">Рисовашка на дисплее</div>
       <canvas id="paint" width="1080" height="1080"></canvas>
       <div class="row tools">
-        <label>Цвет кисти <input id="paintColor" type="color" value="#6ee7b7"></label>
-        <label>Цвет фона <input id="background" type="color" value="#101214"></label>
-        <label class="brush-label">Толщина кисти<input id="brush" type="range" min="3" max="60" value="14"></label>
+        <label>Цвет кисти <input id="brushColor" type="color" value="#6ee7b7"></label>
+        <label>Цвет фона <input id="backgroundColor" type="color" value="#101214"></label>
+        <label class="brush-label">Толщина кисти<input id="brushThickness" type="range" min="3" max="60"
+            value="14"></label>
         <button id="clearPaint">Очистить</button>
       </div>
     </section>
 
   </main>
-  <script src="/app.js"></script>
+  <script src="/utils.js"></script>
+  <script src="/ws.js"></script>
+  <script src="/draw-panel.js"></script>
+  <script src="/neck-panel.js"></script>
+  <script src="/ears-panel.js"></script>
+  <script src="/tts-panel.js"></script>
+  <script src="/led-panel.js"></script>
+  <script src="/media-panel.js"></script>
+  <script src="/audio-panel.js"></script>
+  <script src="/camera-panel.js"></script>
+  <script src="/voice-panel.js"></script>
+  <!-- <script src="/app.js"></script> -->
+  <script src="/app.js?v=1.0.152"></script>
 </body>
 
 </html>

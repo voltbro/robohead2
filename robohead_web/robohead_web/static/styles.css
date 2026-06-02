@@ -85,6 +85,9 @@ main {
     gap: 10px;              /* Задает одинаковый отступ между всеми элементами */
 }
 
+.media {
+    grid-column: span 6;
+}
 
 #camera {
     width: 100%;
@@ -106,7 +109,13 @@ canvas {
 }
 
 #paint {
-    aspect-ratio: 1/1
+    aspect-ratio: 1/1;
+    gap: 10px;
+}
+
+#paint {
+  border-radius: 50%; /* Задайте нужный радиус скругления */
+  overflow: hidden;    /* Гарантирует, что рисунок внутри не выйдет за рамки */
 }
 
 label {
@@ -214,7 +223,7 @@ button.active {
 }
 
 .tools label {
-    margin: 0
+    margin: 15
 }
 
 /* .tools>label:first-child {

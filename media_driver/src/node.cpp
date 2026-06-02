@@ -190,13 +190,11 @@ void MediaDriverNode::handle_play_media(
             {
                 RCLCPP_ERROR(this->get_logger(), "Failed to play video: %s", video_path.c_str());
                 response->data = -1;
-                return;
             }
         } else
         {
-            RCLCPP_WARN(this->get_logger(), "Invalid video/image path: %s", video_path.c_str());
+            RCLCPP_WARN(this->get_logger(), "Invalid video/image path: %s, ignore", video_path.c_str());
             response->data = -1;
-            return;
         }
     }
 
@@ -212,13 +210,11 @@ void MediaDriverNode::handle_play_media(
             {
                 RCLCPP_ERROR(this->get_logger(), "Failed to play audio: %s", audio_path.c_str());
                 response->data = -1;
-                return;
             }
         } else
         {
-            RCLCPP_WARN(this->get_logger(), "Invalid audio path: %s", audio_path.c_str());
+            RCLCPP_WARN(this->get_logger(), "Invalid audio path: %s, ignore", audio_path.c_str());
             response->data = -1;
-            return;
         }
     }
 
