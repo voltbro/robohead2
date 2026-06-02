@@ -14,17 +14,17 @@
       <h1>Робоголова 2.0</h1>
       <p id="connection">Подключение...</p>
     </div>
-    <div class="status"><span id="battery">Батарея: --</span><span id="doa">DoA: --</span></div>
+    <div class="header-status"><span id="battery">Батарея: --</span><span id="doa">DoA: --</span></div>
   </header>
   <main>
 
-    <section class="panel camera-panel">
+    <section class="panel panel-camera">
       <div class="panel-title">Камера</div>
       <img id="camera" src="/camera.mjpg" alt="camera stream">
-      <div class="row camera-tools"><button id="listenAudio">Прослушать</button></div>
+      <div class="panel-row camera-panel-tools"><button id="listenAudio">Прослушать</button></div>
     </section>
 
-    <section class="panel controls neck-panel">
+    <section class="panel panel-controls panel-neck">
       <div class="panel-title">Шея</div>
       <div id="joystick" class="joystick">
         <div id="stick" class="stick"></div>
@@ -33,32 +33,32 @@
       <button id="circleToggle">Круг</button>
     </section>
 
-    <section class="panel controls">
+    <section class="panel panel-controls">
       <div class="panel-title">Уши</div>
-      <div style="display: flex; gap: 50%; justify-content: center; padding: 20px;">
+      <div class="ear-controls">
 
-        <label style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+        <label class="ear-control">
           <span>Лево</span>
           <input id="earL" type="range" min="-90" max="90" value="0"
-            style="writing-mode: vertical-lr; direction: rtl; height: 150px; width: 24px; cursor: pointer;">
+            class="ear-range">
         </label>
 
-        <label style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+        <label class="ear-control">
           <span>Право</span>
           <input id="earR" type="range" min="-90" max="90" value="0"
-            style="writing-mode: vertical-lr; direction: rtl; height: 150px; width: 24px; cursor: pointer;">
+            class="ear-range">
         </label>
 
       </div>
 
-      <div class="row"><button data-ears="0,0">Центр</button><button data-ears="-90,-90">Назад</button>
+      <div class="panel-row"><button data-ears="0,0">Центр</button><button data-ears="-90,-90">Назад</button>
         <button data-ears="90,90">Вперед</button><button id="waveToggle">Волна</button>
       </div>
     </section>
 
-    <section class="panel tts">
+    <section class="panel panel-tts">
       <div class="panel-title">Речь (TTS)</div><textarea id="ttsText" rows="3" placeholder="Text to speak"></textarea>
-      <div class="row"><select id="voice">
+      <div class="panel-row"><select id="voice">
           <option>eugene</option>
           <option>xenia</option>
           <option>aidar</option>
@@ -67,17 +67,17 @@
         </select><button id="speak">Озвучить</button></div><label>Громкость <input id="volume" type="range" min="0"
           max="100" value="60"></label>
     </section>
-    <section class="panel led">
+    <section class="panel panel-led">
       <div class="panel-title">ReSpeaker LED</div>
-      <div class="row"><input id="ledColor" type="color" value="#24d18b"><button id="setLed">Set</button></div>
+      <div class="panel-row"><input id="ledColor" type="color" value="#24d18b"><button id="setLed">Set</button></div>
       <label>Яркость <input id="brightness" type="range" min="0" max="100" value="80"></label>
       <label>Режимы работы</label>
-      <div class="row modes"><button data-mode="0">0</button><button data-mode="1">1</button><button
+      <div class="panel-row panel-modes"><button data-mode="0">0</button><button data-mode="1">1</button><button
           data-mode="2">2</button><button data-mode="3">3</button><button data-mode="4">4</button><button
           data-mode="5">5</button></div>
     </section>
 
-    <section class="panel media">
+    <section class="panel panel-media">
       <div class="panel-title">Медиа</div>
 
       <!-- Пути для ручного ввода (как было) -->
@@ -86,13 +86,13 @@
 
       <!-- Загрузка файла -->
       <!-- Загрузка файла -->
-      <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+      <div class="media-upload-row">
         <!-- flex: 1 заставляет инпут растягиваться, заполняя строку -->
         <input id="mediaUpload" type="file"
-          accept="video/*,image/*,audio/*,.mp3,.wav,.m4a,audio/mpeg,audio/mp3,audio/wav" style="flex: 1; min-width: 0;">
+          accept="video/*,image/*,audio/*,.mp3,.wav,.m4a,audio/mpeg,audio/mp3,audio/wav" class="media-upload-input">
         <button id="uploadMedia">Загрузить</button>
       </div>
-      <div id="uploadProgress" style="font-size: 12px; color: #888; margin: 4px 0;"></div>
+      <div id="uploadProgress"></div>
 
 
 
@@ -100,30 +100,30 @@
 
 
       <!-- Кнопки управления -->
-      <div class="row">
+      <div class="panel-row">
         <button id="playMedia">Старт</button>
         <button id="stopMedia">Стоп</button>
 
-        <label style="display:flex;align-items:center;gap:6px;margin:8px 0">
+        <label class="media-loop-label">
           <input id="mediaLoop" type="checkbox">
           <span>Зацикливание</span>
         </label>
       </div>
 
-      <div class="row">
+      <div class="panel-row">
         <button id="localCameraBtn">📷 Камера</button>
         <button id="voiceStreamBtn">🎤 Микрофон</button>
       </div>
 
     </section>
 
-    <section class="panel draw-panel">
+    <section class="panel panel-draw">
       <div class="panel-title">Рисовашка на дисплее</div>
       <canvas id="paint" width="1080" height="1080"></canvas>
-      <div class="row tools">
+      <div class="panel-row panel-tools">
         <label>Цвет кисти <input id="brushColor" type="color" value="#6ee7b7"></label>
         <label>Цвет фона <input id="backgroundColor" type="color" value="#101214"></label>
-        <label class="brush-label">Толщина кисти<input id="brushThickness" type="range" min="3" max="60"
+        <label class="brush-size-label">Толщина кисти<input id="brushThickness" type="range" min="3" max="60"
             value="14"></label>
         <button id="clearPaint">Очистить</button>
       </div>

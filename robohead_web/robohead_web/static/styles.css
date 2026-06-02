@@ -2,16 +2,16 @@
     color-scheme: dark;
     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: #111315;
-    color: #f4f1e8
+    color: #f4f1e8;
 }
 
 * {
-    box-sizing: border-box
+    box-sizing: border-box;
 }
 
 body {
     margin: 0;
-    min-height: 100vh
+    min-height: 100vh;
 }
 
 header {
@@ -24,34 +24,34 @@ header {
     border-bottom: 1px solid #2d3438;
     position: sticky;
     top: 0;
-    z-index: 999
+    z-index: 999;
 }
 
 h1 {
     margin: 0;
     font-size: 24px;
-    letter-spacing: 0
+    letter-spacing: 0;
 }
 
 p {
     margin: 4px 0 0;
-    color: #9fb0b6
+    color: #9fb0b6;
 }
 
-.status {
+.header-status {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     color: #d8e9d2;
     font-size: 14px;
-    justify-content: flex-end
+    justify-content: flex-end;
 }
 
 main {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     gap: 12px;
-    padding: 12px
+    padding: 12px;
 }
 
 .panel {
@@ -59,7 +59,7 @@ main {
     border: 1px solid #2d3438;
     border-radius: 8px;
     padding: 12px;
-    min-width: 0
+    min-width: 0;
 }
 
 .panel-title {
@@ -67,25 +67,25 @@ main {
     font-weight: 700;
     color: #9fb0b6;
     text-transform: uppercase;
-    margin-bottom: 10px
+    margin-bottom: 10px;
 }
 
-.camera-panel,
-.draw-panel {
-    grid-column: span 6
+.panel-camera,
+.panel-draw {
+    grid-column: span 6;
 }
 
-.controls,
-.tts,
-.led,
-.media {
+.panel-controls,
+.panel-tts,
+.panel-led,
+.panel-media {
     grid-column: span 3;
     display: flex;
     flex-direction: column; /* Располагает элементы вертикально */
     gap: 10px;              /* Задает одинаковый отступ между всеми элементами */
 }
 
-.media {
+.panel-media {
     grid-column: span 6;
 }
 
@@ -96,7 +96,7 @@ main {
     background: #08090a;
     border: 1px solid #333b40;
     border-radius: 6px;
-    display: block
+    display: block;
 }
 
 canvas {
@@ -105,25 +105,17 @@ canvas {
     border: 1px solid #333b40;
     border-radius: 6px;
     display: block;
-    touch-action: none
+    touch-action: none;
 }
 
-#paint {
-    aspect-ratio: 1/1;
-    gap: 10px;
-}
 
-#paint {
-  border-radius: 50%; /* Задайте нужный радиус скругления */
-  overflow: hidden;    /* Гарантирует, что рисунок внутри не выйдет за рамки */
-}
 
 label {
     display: grid;
     gap: 6px;
     margin: 10px 0;
     color: #c7d1d5;
-    font-size: 14px
+    font-size: 14px;
 }
 
 input,
@@ -134,27 +126,28 @@ button {
     border-radius: 6px;
     border: 1px solid #384247;
     background: #101214;
-    color: #f4f1e8
+    color: #f4f1e8;
 }
 
 input,
 select,
 textarea {
     padding: 9px;
-    width: 100%
+    width: 100%;
 }
 
 input[type=range] {
     padding: 0;
     height: 34px;
-    accent-color: #6ee7b7
+    accent-color: #6ee7b7;
 }
 
 
 /* Прогресс загрузки */
 #uploadProgress {
   font-size: 12px;
-  color: #6ee7b7;
+  color: #888;
+  margin: 4px 0;
   min-height: 1.2em;
 }
 
@@ -181,70 +174,128 @@ input[type=range] {
 
 input[type=range]::-webkit-slider-thumb {
     width: 28px;
-    height: 28px
+    height: 28px;
 }
 
 input[type=range]::-moz-range-thumb {
     width: 28px;
-    height: 28px
+    height: 28px;
 }
 
 input[type=color] {
     height: 44px;
     padding: 3px;
-    min-width: 58px
+    min-width: 58px;
 }
 
 button {
     padding: 9px 12px;
     cursor: pointer;
     background: #263136;
-    min-height: 40px
+    min-height: 40px;
 }
 
 button:hover {
-    background: #314047
+    background: #314047;
 }
 
 button.active {
     background: #1f7a5f;
-    border-color: #6ee7b7
+    border-color: #6ee7b7;
 }
 
-.row {
+.panel-row {
     display: flex;
     gap: 8px;
     align-items: flex-end;
-    flex-wrap: wrap
+    flex-wrap: wrap;
 }
 
-.row>* {
-    flex: 1
+.panel-row>* {
+    flex: 1;
 }
 
-.tools label {
-    margin: 15
-}
 
-/* .tools>label:first-child {
-    flex: 0 0 70px
+/* .panel-tools>label:first-child {
+    flex: 0 0 70px;
 } */
 
-.brush-label {
-    flex: 2 1 220px
+.brush-size-label {
+    flex: 2 1 220px;
 }
 
-.camera-tools {
-    margin-top: 10px
+.camera-panel-tools {
+    margin-top: 10px;
 }
 
-.modes button {
-    flex: 1 1 40px
+/* 1. Делаем саму панель «Уши» флекс-контейнером, чтобы внутренности знали общую высоту */
+.panel-controls {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Контейнер для двух ушей */
+.ear-controls {
+    display: flex;
+    flex: 1;
+    gap: 24px;
+    justify-content: space-around;
+    padding: 20px 10px;
+    
+    /* ХАК ДЛЯ СМАРТФОНОВ: Задаем минимальную комфортную высоту для тача */
+    min-height: 200px; 
+}
+
+/* Каждое ухо (текст + ползунок) */
+.ear-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    height: 100%;
+}
+
+/* Сам ползунок */
+.ear-range {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 28px;             /* Сделали чуть шире (28px вместо 24px), чтобы на телефоне было легче попадать пальцем */
+    flex: 1;
+    height: 100%;
+    cursor: pointer;
+    -webkit-appearance: slider-vertical; /* Гарантирует правильный вертикальный вид в старых iOS Safari */
+}
+
+
+
+.media-upload-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.media-upload-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.media-loop-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+
+.panel-modes button {
+    flex: 1 1 40px;
 }
 
 textarea {
     resize: vertical;
-    min-height: 84px
+    min-height: 84px;
 }
 
 .joystick {
@@ -259,8 +310,7 @@ textarea {
     background: radial-gradient(circle at 50% 30%, #4a4d50 0%, #1A1D20 80%, #0d0e10 100%);
     
     /* 2. Усилили внутренние тени для эффекта глубокой лунки */
-    box-shadow: 
-        inset 0 14px 28px rgba(0, 0, 0, 0.85),
+    box-shadow: inset 0 14px 28px rgba(0, 0, 0, 0.85),
         inset 0 -6px 15px rgba(255, 255, 255, 0.05),
         0 8px 20px rgba(0, 0, 0, 0.5);
 
@@ -282,14 +332,14 @@ textarea {
     /* Сделали линии слегка утопленными с помощью затемнения */
     background: #111416;
     box-shadow: 0 1px 0px rgba(255,255,255,0.05);
-    opacity: 0.7; /* Чтобы оси не слишком бросались в глаза */
+    opacity: 0.7; /* Чтобы оси не слишком бросались в глаза */;
 }
 
 .joystick:before {
     left: 50%;
     top: 10%;
     bottom: 10%;
-    width: 2px; /* Чуть толще для лучшей видимости */
+    width: 2px; /* Чуть толще для лучшей видимости */;
     transform: translateX(-50%);
 }
 
@@ -304,13 +354,13 @@ textarea {
 /* Сам стик (шляпка джойстика) */
 .stick {
     z-index: 2;
-    width: 38%; /* Чуть увеличили размер для удобства тача */
+    width: 38%; /* Чуть увеличили размер для удобства тача */;
     aspect-ratio: 1/1;
     border-radius: 50%;
     
     /* 3. Объемный неоново-зеленый градиент вместо плоского цвета */
     background: radial-gradient(circle at 50% 25%, #76fcd0 0%, #50daaa 50%, #286D55 100%);
-    border: 1px solid #1e5240; /* Тонкая аккуратная фаска */
+    border: 1px solid #1e5240; /* Тонкая аккуратная фаска */;
     
     position: absolute;
     left: 50%;
@@ -319,7 +369,7 @@ textarea {
     transform: translate(-50%, -50%); 
     
     /* 4. Реалистичная "падающая" тень + внутренний блик на самом стике */
-    box-shadow: 
+    box-shadow:
         0 10px 20px rgba(0, 0, 0, 0.75),  /* Тень на подложку */
         0 4px 6px rgba(0, 0, 0, 0.4),    /* Мягкая тень под ним */
         inset 0 3px 4px rgba(255, 255, 255, 0.4), /* Верхний внутренний блик */
@@ -332,7 +382,7 @@ textarea {
 .stick:active {
     cursor: grabbing;
     /* Визуально утапливаем стик вниз при клике/таче */
-    box-shadow: 
+    box-shadow:
         0 4px 8px rgba(0, 0, 0, 0.6), 
         inset 0 1px 2px rgba(255, 255, 255, 0.2),
         inset 0 -2px 6px rgba(0, 0, 0, 0.8);
@@ -343,62 +393,62 @@ textarea {
     text-align: center;
     color: #c7d1d5;
     font-size: 14px;
-    margin: 6px 0 10px
+    margin: 6px 0 10px;
 }
 
 @media(max-width:1000px) {
 
-    .camera-panel,
-    .draw-panel {
-        grid-column: span 12
+    .panel-camera,
+    .panel-draw {
+        grid-column: span 12;
     }
 
-    .controls,
-    .tts,
-    .led,
-    .media {
-        grid-column: span 6
+    .panel-controls,
+    .panel-tts,
+    .panel-led,
+    .panel-media {
+        grid-column: span 6;
     }
 }
 
 @media(max-width:640px) {
     header {
         align-items: flex-start;
-        flex-direction: column
+        flex-direction: column;
     }
 
     main {
-        grid-template-columns: 1fr
+        grid-template-columns: 1fr;
     }
 
     .panel,
-    .camera-panel,
-    .draw-panel,
-    .controls,
-    .tts,
-    .led,
-    .media {
-        grid-column: span 1
+    .panel-camera,
+    .panel-draw,
+    .panel-controls,
+    .panel-tts,
+    .panel-led,
+    .panel-media {
+        grid-column: span 1;
     }
 
-    .brush-label {
-        flex: 1 1 100%
+    .brush-size-label {
+        flex: 1 1 100%;
     }
 
     input[type=range] {
-        height: 44px
+        height: 44px;
     }
 }
 
-.tools > label:nth-child(1),
-.tools > label:nth-child(2) {
+.panel-tools > label:nth-child(1),
+.panel-tools > label:nth-child(2) {
     flex: 1 1 calc(50% - 4px);
 }
 
 /* Ползунок занимает 100% второй строки */
-.brush-label {
+.brush-size-label {
     flex: 1 1 100% !important;
-    margin-bottom: 4px; /* Небольшой отступ перед кнопкой */
+    margin-bottom: 4px; /* Небольшой отступ перед кнопкой */;
 }
 
 /* Кнопка занимает 100% третьей строки */
