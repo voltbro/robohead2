@@ -24,6 +24,9 @@ from .core.battery_monitor import BatteryMonitor
 from .core.action_manager import ActionManager
 from .core.commander import Commander
 
+import yaml
+from pathlib import Path
+from ruamel.yaml import YAML
 
 class RoboheadController(Node):
     def __init__(self, package_dir:str):
@@ -248,3 +251,65 @@ class RoboheadController(Node):
         self._action_manager.execute_action("std_startup", None, False)
 
         self.get_logger().info("Controller started and ready")
+
+
+    def update_config(self, file_name: str, param_path: str, new_value: any):
+        """
+        Универсальная функция обновления параметров.
+        file_name: например, 'robohead_controller.yaml'
+        param_path: например, 'media_driver.srv_set_volume_name' или 'media_driver.sound.volume'
+        """
+        # 1. Сборка пути относительно исполняемого файла в install
+        # package_dir = os.path.dirname(os.path.abspath(__file__))
+        config_dir = Path(os.path.abspath(os.path.join(self._package_dir, "../config")))
+        
+        if not file_name.endswith('.yaml'):
+            file_name += '.yaml'
+            
+        yaml_path = config_dir / file_name
+
+        if not yaml_path.exists():
+            self.get_logger().error(f"Файл конфигурации не найден: {yaml_path}")
+            return
+
+        # Настраиваем ruamel.yaml
+        yaml_parser = YAML()
+        yaml_parser.preserve_quotes = True  
+        yaml_parser.indent(mapping=2, sequence=4, offset=2) 
+
+        try:
+            # Читаем файл с сохранением комментариев
+            with open(yaml_path, 'r', encoding='utf-8') as f:
+                config_data = yaml_parser.load(f)
+
+            # Вычисляем корневой ключ (например, '/**' или имя конкретной ноды)
+            node_mask = '/**'
+            if node_mask not in config_data:
+                node_mask = list(config_data.keys())[0] if config_data else '/**'
+                
+            ros_params = config_data.setdefault(node_mask, {}).setdefault('ros__parameters', {})
+
+            # Разбираем вложенный путь в массив ключей
+            keys = param_path.split('.')
+            
+            # ЗАЩИТА: Если по ошибке передали путь, начинающийся с 'ros__parameters', отсекаем его
+            if keys[0] == 'ros__parameters':
+                keys = keys[1:]
+
+            # Погружаемся в структуру словаря до предпоследнего уровня
+            current_level = ros_params
+            for key in keys[:-1]:
+                # Используем setdefault, чтобы автоматически создавать промежуточные подгруппы, если их нет
+                current_level = current_level.setdefault(key, {})
+                
+            # Присваиваем значение самому глубокому параметру
+            current_level[keys[-1]] = new_value
+
+            # Перезаписываем файл обратно в директорию share/config (внутри папки install)
+            with open(yaml_path, 'w', encoding='utf-8') as f:
+                yaml_parser.dump(config_data, f)
+                
+            self.get_logger().info(f"Параметр {param_path} изменен в {file_name}.")
+
+        except Exception as e:
+            self.get_logger().error(f"Ошибка при сохранении YAML {file_name}: {str(e)}")

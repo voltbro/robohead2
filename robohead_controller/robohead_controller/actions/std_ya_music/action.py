@@ -18,12 +18,19 @@ from sensor_msgs.msg import Image as ROSImage
 from std_msgs.msg import Header
 from yandex_music import Client
 from PIL import ImageFont, ImageDraw, Image
+import socket
+from yandex_music.exceptions import UnauthorizedError, YandexMusicError
 
 if TYPE_CHECKING:
     from robohead_controller.controller import RoboheadController
     import threading
 
-TOKEN = "write_your_token"
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Робот ВСЕГДА ищет секреты в корне пользователя, 
+# независимо от того, где установлен ROS 2
+
 # === Настройки графики ===
 SCREEN_RESOLUTION = (1080, 1080)
 TOUCH_RESOLUTION = 4096
@@ -291,6 +298,14 @@ def cv2_to_ros_image(cv_image: np.ndarray, frame_id: str = "screen") -> ROSImage
     ros_img.data = cv_image.tobytes()
     return ros_img
 
+def is_internet_available():
+    """Быстрая проверка наличия интернета через DNS Яндекса."""
+    try:
+        # Пытаемся подключиться к DNS Яндекса на порт 53 за 2 секунды
+        socket.create_connection(("77.88.8.8", 53), timeout=2.0)
+        return True
+    except OSError:
+        return False
 
 def run(
     controller: RoboheadController, action_name: str, cancel_event: threading.Event
@@ -299,6 +314,10 @@ def run(
     logger = controller.get_logger()
     logger.info(f"[{action_name}] start")
 
+    env_path = Path.home() / '.env'
+    load_dotenv(dotenv_path=env_path, override=True)
+    TOKEN = os.getenv('YANDEX_MUSIC_TOKEN')
+    
     # === FIX: СБРОС ГЛОБАЛЬНОГО СОСТОЯНИЯ ПРИ КАЖДОМ ЗАПУСКЕ ===
     global cur_ind, exit_requested, touch_command, pressed_button
     cur_ind = 0
@@ -307,8 +326,37 @@ def run(
     pressed_button = None
     # ===========================================================
 
-    client = Client(TOKEN).init()  # ⚠️ Замените на реальный токен
-    
+    if not is_internet_available():
+        controller.get_logger().error("Яндекс.Музыка: Отсутствует подключение к интернету!")
+        controller.silero_tts.say(cancel_event=cancel_event, text="Отсутствует подключение к интернету", block=True)
+        return
+
+    if not TOKEN:
+        controller.get_logger().error(f"Яндекс.Музыка: Токен не найден в файле {env_path}!")
+        controller.silero_tts.say(cancel_event=cancel_event, text="Токен не найден в файле окружения", block=True)
+        return
+
+    try:
+        controller.get_logger().info("Авторизация в Яндекс.Музыке...")
+        client = Client(TOKEN).init()
+        controller.get_logger().info(f"Успешный вход! Аккаунт: {client.me.account.login}")
+        
+    except UnauthorizedError:
+        controller.get_logger().error("Яндекс.Музыка: Ошибка авторизации! Неверный или просроченный токен.")
+        controller.silero_tts.say(cancel_event=cancel_event, text="Ошибка авторизации! Неверный или просроченный токен.", block=True)
+        return
+        
+    except YandexMusicError as e:
+        controller.get_logger().error(f"Яндекс.Музыка: Сбой API Яндекса: {str(e)}")
+        controller.silero_tts.say(cancel_event=cancel_event, text="Сбой сервисов Яндекса", block=True)
+
+        return
+        
+    except Exception as e:
+        controller.get_logger().error(f"Яндекс.Музыка: Непредвиденная ошибка: {str(e)}")
+        controller.silero_tts.say(cancel_event=cancel_event, text="Непредвиденная ошибка", block=True)
+        return
+
     my_ind = 0
     tracks = client.users_likes_tracks()
     

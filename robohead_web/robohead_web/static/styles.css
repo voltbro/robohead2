@@ -396,6 +396,394 @@ textarea {
     margin: 6px 0 10px;
 }
 
+
+/* ?????? ???????? */
+.panel-settings {
+    grid-column: span 6;
+}
+
+.settings-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.btn-bind {
+    padding: 9px 12px;
+    background: #1f7a5f;
+    color: #6ee7b7;
+    border: 1px solid #6ee7b7;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-bind:hover {
+    background: #28a070;
+}
+
+.auth-status {
+    font-size: 12px;
+    color: #9fb0b6;
+    margin-top: 8px;
+    min-height: 1.2em;
+}
+
+.code-display {
+    background: #101214;
+    border: 1px solid #2d3438;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 8px;
+    font-family: monospace;
+    font-size: 13px;
+    color: #6ee7b7;
+    word-break: break-all;
+    min-height: 1.2em;
+    display: none;
+}
+
+.code-display.active {
+    display: block;
+}
+
+
+
+/* Модальное окно */
+.modal {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #fff;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #fff;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.step {
+  margin-bottom: 25px;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}
+
+.step-title {
+  color: #888;
+  font-size: 14px;
+  margin: 0 0 10px 0;
+  font-weight: 500;
+}
+
+.code-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #0a0a0a;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+.auth-code {
+  flex: 1;
+  color: #6ee7b7;
+  font-size: 24px;
+  letter-spacing: 3px;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.btn-copy {
+  background: #2d5a5a;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.btn-copy:hover {
+  background: #3d7a7a;
+}
+
+.btn-copy.copied {
+  background: #6ee7b7;
+  color: #0a0a0a;
+}
+
+.auth-link {
+  display: inline-block;
+  background: #2d5a5a;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.auth-link:hover {
+  background: #3d7a7a;
+}
+
+.auth-status-modal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #888;
+  font-size: 14px;
+}
+
+.auth-status-modal.success {
+  color: #6ee7b7;
+}
+
+.auth-status-modal.error {
+  color: #ff6b6b;
+}
+
+.spinner {
+  border: 3px solid #333;
+  border-top: 3px solid #6ee7b7;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Статус авторизации на странице */
+.auth-status {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #888;
+}
+
+.token-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#yaTokenInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2a2a2a; /* Цвет заблокированного поля */
+  color: #aaa;
+  font-family: monospace;
+  transition: all 0.2s ease;
+}
+
+/* Стиль активного (редактируемого) поля */
+#yaTokenInput:not([readonly]) {
+  background-color: #1a1a1a;
+  color: #fff;
+  border-color: #6ee7b7;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(110, 231, 183, 0.2);
+}
+
+.token-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #333;
+  color: #ccc;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  background-color: #444;
+  color: #fff;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Цвета для конкретных кнопок */
+.save-btn {
+  background-color: #2d5a5a;
+  color: #6ee7b7;
+}
+.save-btn:hover:not(:disabled) {
+  background-color: #3d7a7a;
+}
+
+.cancel-btn {
+  background-color: #5a2d2d;
+  color: #ff6b6b;
+}
+.cancel-btn:hover:not(:disabled) {
+  background-color: #7a3d3d;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.auth-status {
+  margin-top: 8px;
+  font-size: 13px;
+  min-height: 20px; /* Чтобы интерфейс не прыгал при смене текста */
+  transition: color 0.2s;
+}
+
+/* Утилиты */
+.hidden { display: none !important; }
+
+/* Строка токена */
+.token-row { display: flex; gap: 8px; align-items: center; }
+#yaTokenInput {
+  flex: 1; padding: 8px 12px; border: 1px solid #444; border-radius: 4px;
+  background: #2a2a2a; color: #aaa; font-family: monospace; transition: all 0.2s;
+}
+#yaTokenInput:not([readonly]) {
+  background: #1a1a1a; color: #fff; border-color: #6ee7b7;
+  outline: none; box-shadow: 0 0 0 2px rgba(110,231,183,0.2);
+}
+
+/* Кнопки действий */
+.token-actions { display: flex; gap: 4px; }
+.action-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border: none; border-radius: 4px;
+  cursor: pointer; background: #333; color: #ccc; transition: 0.2s; font-size: 16px;
+}
+.action-btn:hover:not(:disabled) { background: #444; color: #fff; }
+.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.edit-btn { background: #2d3a5a; color: #88b4ff; }
+.save-btn { background: #2d5a5a; color: #6ee7b7; }
+.cancel-btn { background: #5a2d2d; color: #ff6b6b; }
+.auth-btn { background: #5a4a2d; color: #ffa500; }
+
+/* Статус */
+.auth-status { margin-top: 8px; font-size: 13px; min-height: 20px; transition: color 0.2s; }
+
+/* Модальное окно */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.modal-content {
+  background: #1e1e1e; border-radius: 12px; width: 90%; max-width: 420px;
+  padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); border: 1px solid #333;
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.modal-header h3 { margin: 0; color: #fff; font-size: 18px; }
+.modal-close { background: none; border: none; color: #888; font-size: 24px; cursor: pointer; }
+.modal-close:hover { color: #fff; }
+
+/* Шаги в модалке */
+.step { margin-bottom: 15px; }
+.step-title { color: #aaa; font-size: 13px; margin: 0 0 8px 0; }
+.code-box {
+  display: flex; gap: 10px; background: #111; padding: 10px;
+  border-radius: 6px; align-items: center;
+}
+#authCodeDisplay {
+  flex: 1; font-family: monospace; font-size: 22px; color: #6ee7b7;
+  letter-spacing: 2px; text-align: center;
+}
+.btn-copy {
+  background: #333; color: #fff; border: 1px solid #444; padding: 6px 12px;
+  border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap;
+}
+.btn-copy:hover { background: #444; }
+.btn-copy.copied { background: #2d5a5a; color: #6ee7b7; border-color: #6ee7b7; }
+
+.auth-link { display: inline-block; color: #6ee7b7; text-decoration: none; font-size: 14px; margin-top: 5px; }
+.auth-link:hover { text-decoration: underline; }
+
+.poll-status { display: flex; align-items: center; gap: 10px; color: #888; font-size: 13px; margin-top: 5px; }
+.poll-status.success { color: #6ee7b7; }
+.poll-status.error { color: #ff6b6b; }
+.spinner {
+  width: 16px; height: 16px; border: 2px solid #333;
+  border-top-color: #6ee7b7; border-radius: 50%; animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Стили для поля громкости */
+.volume-suffix { 
+  margin-left: -12px; 
+  color: #888; 
+  font-size: 14px; 
+  pointer-events: none; 
+}
+#volumeInput { 
+  max-width: 90px; 
+  text-align: right; 
+  padding-right: 28px; 
+}
+/* При редактировании убираем отступ суффикса */
+#volumeInput:not([readonly]) { padding-right: 12px; }
+
 @media(max-width:1000px) {
 
     .panel-camera,

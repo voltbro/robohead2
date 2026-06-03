@@ -22,7 +22,14 @@ from robohead_interfaces.srv import ColorPalette, Move, PlayMedia, SimpleCommand
 
 from .image_utils import clamp, parse_color
 from .ros_bridge import RoboheadBridge
+from .ya_auth import ya_auth
+from .config_manager import ConfigManager
 
+CONFIG_DIR = os.environ.get(
+    "ROBOHEAD_CONFIG_DIR", 
+    "/home/pi/ros2_ws/install/robohead_controller/share/robohead_controller/config"
+)
+config_mgr = ConfigManager(CONFIG_DIR)
 
 class ConnectionManager:
     """Tracks browser WebSocket clients and broadcasts canvas commands."""
@@ -99,7 +106,7 @@ class RoboheadWebServer:
             allowed_scripts = {
                 'utils', 'ws', 'draw-panel', 'neck-panel', 'ears-panel',
                 'tts-panel', 'led-panel', 'media-panel', 'audio-panel',
-                'camera-panel', 'voice-panel', 'app',
+                'camera-panel', 'voice-panel', 'app', 'settings-panel',
             }
             if script_name not in allowed_scripts:
                 raise HTTPException(status_code=404, detail='Not found')
@@ -255,6 +262,61 @@ class RoboheadWebServer:
             cmd = self.bridge.clear_canvas(data.get('color', '#ffffff'), flush=True)
             await self.manager.broadcast(cmd)
             return {'ok': True}
+
+        @app.get("/api/settings/ya-token")
+        async def get_ya_token() -> dict[str, Any]:
+            """Возвращает текущий токен из .env"""
+            token = ya_auth.get_token()
+            return {"token": token, "token_bound": bool(token)}
+
+        @app.post("/api/settings/ya-token")
+        async def save_ya_token(data: dict[str, str]) -> dict[str, str]:
+            """Сохраняет токен, переданный вручную"""
+            new_token = data.get("token", "").strip()
+            if not new_token:
+                return {"status": "error", "message": "Токен не может быть пустым"}
+                
+            if ya_auth.save_token(new_token):
+                return {"status": "success", "message": "Токен успешно сохранен в ~/.env"}
+            return {"status": "error", "message": "Ошибка записи в файл ~/.env"}
+
+        @app.post("/api/settings/ya-auth-init")
+        async def ya_auth_init() -> dict[str, Any]:
+            """Запускает процесс авторизации через Device Code Flow"""
+            return ya_auth.init_auth()
+
+        @app.post("/api/settings/ya-auth-poll")
+        async def ya_auth_poll(data: dict[str, str]) -> dict[str, Any]:
+            """Опрашивает статус авторизации по poll_id"""
+            poll_id = data.get("poll_id")
+            if not poll_id:
+                return {"ready": False, "error": "Отсутствует poll_id"}
+            return ya_auth.poll_auth(poll_id)
+
+        @app.get("/api/settings/default-volume")
+        async def get_default_volume() -> dict[str, Any]:
+            vol = config_mgr.get_param("media_driver", "default_volume")
+            return {"volume": vol if vol is not None else 999.0}
+
+        @app.post("/api/settings/default-volume")
+        async def save_default_volume(data: dict[str, Any]) -> dict[str, str]:
+            new_vol = data.get("volume")
+            
+            # Явная проверка на None и приведение к числу
+            if new_vol is None:
+                return {"status": "error", "message": "Параметр volume не передан"}
+            
+            try:
+                new_vol = float(new_vol)
+            except (ValueError, TypeError):
+                return {"status": "error", "message": "Громкость должна быть числом"}
+                
+            if not (0 <= new_vol <= 100):
+                return {"status": "error", "message": "Громкость должна быть от 0 до 100"}
+                
+            if config_mgr.update_param("media_driver", "default_volume", new_vol):
+                return {"status": "success", "message": "Громкость сохранена в конфиг"}
+            return {"status": "error", "message": "Ошибка записи в YAML файл"}
 
     async def _call(self, client, request_msg, timeout: float = 4.0) -> JSONResponse:
         """Call a ROS service without blocking uvicorn's event loop."""

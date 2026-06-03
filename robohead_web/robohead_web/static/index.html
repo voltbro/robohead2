@@ -39,14 +39,12 @@
 
         <label class="ear-control">
           <span>Лево</span>
-          <input id="earL" type="range" min="-90" max="90" value="0"
-            class="ear-range">
+          <input id="earL" type="range" min="-90" max="90" value="0" class="ear-range">
         </label>
 
         <label class="ear-control">
           <span>Право</span>
-          <input id="earR" type="range" min="-90" max="90" value="0"
-            class="ear-range">
+          <input id="earR" type="range" min="-90" max="90" value="0" class="ear-range">
         </label>
 
       </div>
@@ -129,6 +127,68 @@
       </div>
     </section>
 
+    <section class="panel panel-settings">
+      <div class="panel-title">Настройки Яндекс Музыки</div>
+
+      <div style="margin-bottom: 20px;">
+        <label>Токен Я.Музыки</label>
+        <div class="settings-row token-row">
+          <input id="yaTokenInput" type="text" placeholder="Токен не задан" readonly>
+
+          <div class="token-actions">
+            <button id="editBtn" class="action-btn edit-btn" title="Редактировать">✏️</button>
+            <button id="saveBtn" class="action-btn save-btn hidden" title="Сохранить">💾</button>
+            <button id="cancelBtn" class="action-btn cancel-btn hidden" title="Отменить">❌</button>
+            <button id="authBtn" class="action-btn auth-btn" title="Получить токен">🔑</button>
+          </div>
+        </div>
+        <div id="yaAuthStatus" class="auth-status"></div>
+      </div>
+
+      <div class="setting-group" style="margin-top: 20px;">
+        <label>Громкость по-умолчанию</label>
+        <div class="settings-row token-row">
+          <input id="volumeInput" type="number" min="0" max="100" step="1" value="999" readonly>
+          <span class="volume-suffix">%</span>
+          <div class="token-actions">
+            <button id="editVolBtn" class="action-btn edit-btn" title="Редактировать">✏️</button>
+            <button id="saveVolBtn" class="action-btn save-btn hidden" title="Сохранить">💾</button>
+            <button id="cancelVolBtn" class="action-btn cancel-btn hidden" title="Отменить">❌</button>
+          </div>
+        </div>
+        <div id="volStatus" class="auth-status"></div>
+      </div>
+    </section>
+
+    <!-- Модальное окно авторизации -->
+    <div id="authModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Авторизация Яндекс Музыки</h3>
+          <button id="modalCloseBtn" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="step">
+            <p class="step-title">1. Скопируйте код:</p>
+            <div class="code-box">
+              <code id="authCodeDisplay">------</code>
+              <button id="copyCodeBtn" class="btn-copy">Копировать</button>
+            </div>
+          </div>
+          <div class="step">
+            <p class="step-title">2. Перейдите по ссылке и введите код:</p>
+            <a id="authUrlLink" href="#" target="_blank" class="auth-link">Открыть Яндекс Музыку →</a>
+          </div>
+          <div class="step">
+            <p class="step-title">3. Статус:</p>
+            <div id="authPollStatus" class="poll-status">
+              <span class="spinner"></span> Ожидание ввода кода...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
   <script src="/utils.js"></script>
   <script src="/ws.js"></script>
@@ -141,7 +201,7 @@
   <script src="/audio-panel.js"></script>
   <script src="/camera-panel.js"></script>
   <script src="/voice-panel.js"></script>
-  <!-- <script src="/app.js"></script> -->
+  <script src="/settings-panel.js"></script>
   <script src="/app.js?v=1.0.152"></script>
 </body>
 
