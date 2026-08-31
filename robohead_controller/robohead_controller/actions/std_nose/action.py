@@ -1,4 +1,4 @@
-# std_node
+# std_nose
 # Управление головой через перетаскивание «носа»
 
 from __future__ import annotations

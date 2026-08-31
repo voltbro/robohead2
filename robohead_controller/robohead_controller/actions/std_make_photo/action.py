@@ -2,14 +2,49 @@
 # действие, выполняющееся при команде "Сделай фото"
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 import os
+import threading
+
 import cv2
-from cv_bridge import CvBridge
+import numpy as np
+from sensor_msgs.msg import Image
 
 if TYPE_CHECKING:
     from robohead_controller.controller import RoboheadController
-    import threading
+
+
+# === Функции для замены cv_bridge ===
+def imgmsg_to_cv2(img_msg: Image) -> np.ndarray:
+    """Конвертирует ROS Image (bgr8) в numpy array без cv_bridge"""
+    dtype = np.uint8
+    n_channels = 3
+    # Если в строке нет паддинга (step == width * 3)
+    if img_msg.step == img_msg.width * n_channels:
+        return np.frombuffer(img_msg.data, dtype=dtype).reshape((img_msg.height, img_msg.width, n_channels)).copy()
+    else:
+        # Если есть паддинг в строках
+        return np.ndarray(
+            shape=(img_msg.height, img_msg.width, n_channels),
+            dtype=dtype,
+            buffer=img_msg.data,
+            strides=(img_msg.step, n_channels, 1)
+        ).copy()
+
+
+def cv2_to_imgmsg(cv_image: np.ndarray) -> Image:
+    """Конвертирует numpy array (bgr8) в ROS Image без cv_bridge"""
+    msg = Image()
+    msg.height = cv_image.shape[0]
+    msg.width = cv_image.shape[1]
+    msg.encoding = "bgr8"
+    msg.is_bigendian = 0
+    msg.step = 3 * cv_image.shape[1]
+    msg.data = cv_image.tobytes()
+    return msg
+
 
 # Константы для отрисовки текста на кадре
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -29,8 +64,9 @@ def run(
         cancel_event: threading.Event для проверки отмены
     """
     action_dir = os.path.dirname(os.path.abspath(__file__))
-    cv_bridge = CvBridge()
-
+    
+    # cv_bridge больше не нужен
+    
     logger = controller.get_logger()
     logger.info(f"[{action_name}] start")
 
@@ -63,7 +99,13 @@ def run(
                 controller.rate_.sleep()
                 continue
 
-            cv_image = cv_bridge.imgmsg_to_cv2(img_msg, "bgr8")
+            try:
+                cv_image = imgmsg_to_cv2(img_msg)
+            except Exception as e:
+                logger.warn(f"[{action_name}] CV conversion failed: {e}")
+                controller.rate_.sleep()
+                continue
+
             cv_image = cv2.resize(cv_image, (1080, 1080))
 
             text = str(num)
@@ -74,8 +116,11 @@ def run(
                 cv_image, text, pos, FONT, FONT_SCALE, FONT_COLOR, THICKNESS, LINE_TYPE
             )
 
-            out_msg = cv_bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
-            controller.media_driver.stream_publish(out_msg)
+            try:
+                out_msg = cv2_to_imgmsg(cv_image)
+                controller.media_driver.stream_publish(out_msg)
+            except Exception as e:
+                pass
 
             controller.rate_.sleep()
 
@@ -95,12 +140,15 @@ def run(
     controller.sleep(cancel_event, 0.1)
     img_msg = controller.usb_cam.image_raw
     if img_msg is not None:
-        cv_image = cv_bridge.imgmsg_to_cv2(img_msg, "bgr8")
-        cv_image = cv2.resize(cv_image, (1080, 1080))
-        out_msg = cv_bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")
-        controller.media_driver.stream_publish(out_msg)
-        controller.media_driver.stream_publish(out_msg)
-        controller.media_driver.stream_publish(out_msg)
+        try:
+            cv_image = imgmsg_to_cv2(img_msg)
+            cv_image = cv2.resize(cv_image, (1080, 1080))
+            out_msg = cv2_to_imgmsg(cv_image)
+            controller.media_driver.stream_publish(out_msg)
+            controller.media_driver.stream_publish(out_msg)
+            controller.media_driver.stream_publish(out_msg)
+        except Exception as e:
+            pass
 
     # Пауза 5 секунд, чтобы пользователь успел посмотреть на "фотографию"
     controller.sleep(cancel_event, 5.0)

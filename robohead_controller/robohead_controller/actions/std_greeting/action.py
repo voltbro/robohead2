@@ -56,7 +56,7 @@ def run(
         block=False,
     )
 
-    for k in range(5):
+    for k in range(10):
         # Трясём головой
         controller.neck_driver.set_angle(
             cancel_event=cancel_event,

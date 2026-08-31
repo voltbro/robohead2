@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
 import os
 import time
 import threading
 import cv2
 import numpy as np
-from cv_bridge import CvBridge
+from sensor_msgs.msg import Image  # Импортируем Image вместо CvBridge
 
 if TYPE_CHECKING:
     from robohead_controller.controller import RoboheadController
@@ -37,6 +38,35 @@ DELTA_K = (
 )
 
 
+# === Функции для замены cv_bridge ===
+def imgmsg_to_cv2(img_msg: Image) -> np.ndarray:
+    """Конвертирует ROS Image (bgr8) в numpy array без cv_bridge"""
+    dtype = np.uint8
+    n_channels = 3
+    # Если в строке нет паддинга (step == width * 3)
+    if img_msg.step == img_msg.width * n_channels:
+        return np.frombuffer(img_msg.data, dtype=dtype).reshape((img_msg.height, img_msg.width, n_channels)).copy()
+    else:
+        # Если есть паддинг в строках
+        return np.ndarray(
+            shape=(img_msg.height, img_msg.width, n_channels),
+            dtype=dtype,
+            buffer=img_msg.data,
+            strides=(img_msg.step, n_channels, 1)
+        ).copy()
+
+def cv2_to_imgmsg(cv_image: np.ndarray) -> Image:
+    """Конвертирует numpy array (bgr8) в ROS Image без cv_bridge"""
+    msg = Image()
+    msg.height = cv_image.shape[0]
+    msg.width = cv_image.shape[1]
+    msg.encoding = "bgr8"
+    msg.is_bigendian = 0
+    msg.step = 3 * cv_image.shape[1]
+    msg.data = cv_image.tobytes()
+    return msg
+
+
 class BallTrackerApp:
     def __init__(
         self,
@@ -49,8 +79,9 @@ class BallTrackerApp:
         self.cancel_event = cancel_event
         self.logger = controller.get_logger()
         self.action_dir = os.path.dirname(os.path.abspath(__file__))
-        self.cv_bridge = CvBridge()
-
+        
+        # CvBridge больше не нужен
+        
         # Внутреннее состояние, разделяемое между потоками
         self.is_run = False
         self.ball_xy = (0, 0)
@@ -194,11 +225,10 @@ class BallTrackerApp:
             ):
                 time.sleep(0.1)
                 continue
-
             prev_img = current_img
 
             try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(current_img, "bgr8")
+                cv_image = imgmsg_to_cv2(current_img)
             except Exception as e:
                 self.logger.warn(f"[{self.action_name}] CV conversion failed: {e}")
                 continue
@@ -214,6 +244,7 @@ class BallTrackerApp:
             hlow, hhigh = self.hsv_filter[0]
             slow, shigh = self.hsv_filter[1]
             vlow, vhigh = self.hsv_filter[2]
+
             mask = cv2.inRange(
                 hsv, np.array([hlow, slow, vlow]), np.array([hhigh, shigh, vhigh])
             )
@@ -236,7 +267,7 @@ class BallTrackerApp:
 
             display_img = cv2.resize(cv_image, SCREEN_RESOLUTION)
             try:
-                msg = self.cv_bridge.cv2_to_imgmsg(display_img, encoding="bgr8")
+                msg = cv2_to_imgmsg(display_img)
                 self.controller.media_driver.stream_publish(msg)
             except Exception as e:
                 pass
@@ -269,7 +300,7 @@ class BallTrackerApp:
             prev_img = current_img
 
             try:
-                cv_image = self.cv_bridge.imgmsg_to_cv2(current_img, "bgr8")
+                cv_image = imgmsg_to_cv2(current_img)
             except:
                 continue
 
@@ -298,7 +329,7 @@ class BallTrackerApp:
             cv2.putText(screen_img, text, pos, font, font_scale, color, thickness)
 
             try:
-                msg = self.cv_bridge.cv2_to_imgmsg(screen_img, encoding="bgr8")
+                msg = cv2_to_imgmsg(screen_img)
                 self.controller.media_driver.stream_publish(msg)
             except:
                 pass
