@@ -5,7 +5,7 @@
 #include <string>
 #include <atomic>
 #include <opencv2/imgcodecs.hpp>
-#include <cv_bridge/cv_bridge.hpp>
+#include <opencv2/imgproc.hpp>
 #include "sensor_msgs/msg/image.hpp"
 #include "robohead_interfaces/srv/play_media.hpp"
 #include "robohead_interfaces/srv/simple_command.hpp"
@@ -136,14 +136,36 @@ void MediaDriverNode::handle_stream_image(const sensor_msgs::msg::Image::SharedP
 
     try
     {
-        // Конвертируем ROS Image → OpenCV
-        cv::Mat frame = cv_bridge::toCvCopy(msg, "bgr8")->image;
+        // 1. Проверяем формат. Без cv_bridge мы обязаны сами контролировать кодировку.
+        cv::Mat frame;
+        
+        if (msg->encoding == "bgr8") {
+            // Быстрое создание матрицы-обертки поверх памяти сообщения (Zero-copy)
+            frame = cv::Mat(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
+        } 
+        else if (msg->encoding == "rgb8") {
+            // Если пришел RGB, создаем временную матрицу и конвертируем в BGR для OpenCV
+            cv::Mat rgb_frame(msg->height, msg->width, CV_8UC3, const_cast<unsigned char*>(msg->data.data()), msg->step);
+            cv::cvtColor(rgb_frame, frame, cv::COLOR_RGB2BGR);
+        } 
+        else if (msg->encoding == "mono8") {
+            // Если пришла черно-белая картинка, переводим в BGR
+            cv::Mat mono_frame(msg->height, msg->width, CV_8UC1, const_cast<unsigned char*>(msg->data.data()), msg->step);
+            cv::cvtColor(mono_frame, frame, cv::COLOR_GRAY2BGR);
+        } 
+        else {
+            // Добавьте другие кодировки (например, bgra8), если ваша камера их использует
+            throw std::runtime_error("Unsupported image encoding: " + msg->encoding);
+        }
 
-        // Сохраняем кадр в /dev/shm (в памяти, без диска)
+        // 2. Сохраняем кадр в /dev/shm (в памяти, без диска)
         std::string tmp_path = "/dev/shm/robohead_stream_frame.ppm";
-        cv::imwrite(tmp_path, frame);
+        
+        if (!cv::imwrite(tmp_path, frame)) {
+            throw std::runtime_error("Failed to write image to " + tmp_path);
+        }
 
-        // Загружаем в видео-плеер БЕЗ остановки аудио!
+        // 3. Загружаем в видео-плеер БЕЗ остановки аудио!
         video_player_->update_frame(tmp_path);
 
         RCLCPP_DEBUG(this->get_logger(), "Stream frame updated (%dx%d)", frame.cols, frame.rows);
@@ -153,6 +175,7 @@ void MediaDriverNode::handle_stream_image(const sensor_msgs::msg::Image::SharedP
         RCLCPP_ERROR(this->get_logger(), "Stream error: %s", e.what());
     }
 }
+
 
 void MediaDriverNode::handle_play_media(
     const std::shared_ptr<PlayMedia::Request> request,

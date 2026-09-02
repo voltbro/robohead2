@@ -20,17 +20,15 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robohead_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Find libmpv
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
 
-# --- Важно: сюда добавляем include из cv_bridge и OpenCV ---
+# --- Важно: сюда добавляем include OpenCV ---
 include_directories(
   include
-  ${cv_bridge_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
 )
 
@@ -68,14 +66,13 @@ ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   robohead_interfaces
   sensor_msgs
-  cv_bridge
 )
 
 # ---
 add_executable(touch_publisher_node
   src/touch_publisher.cpp
 )
-target_include_directories(${PROJECT_NAME}_node PUBLIC
+target_include_directories(touch_publisher_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
